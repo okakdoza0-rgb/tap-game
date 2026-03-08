@@ -1,44 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Artemwe Tap</title>
 
 <style>
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+
+html, body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:black;
+  font-family:Arial, sans-serif;
+  touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+}
+
 body{
-background:black;
-color:white;
-text-align:center;
-font-family:Arial;
-margin:0;
+  position:fixed;
+  inset:0;
+}
+
+#game{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+
+#wrap{
+  position:relative;
+  width:320px;
+  height:320px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 #score{
-font-size:40px;
-margin-top:40px;
-margin-bottom:20px;
+  position:absolute;
+  top:10px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:48px;
+  font-weight:bold;
+  color:white;
+  text-align:center;
+  z-index:2;
 }
 
-img{
-width:300px;
-cursor:pointer;
+#tap-img{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:260px;
+  max-width:70vw;
+  height:auto;
+  cursor:pointer;
+  transition:transform 0.08s ease;
+}
+
+#tap-img:active{
+  transform:translate(-50%, -50%) scale(0.96);
 }
 </style>
 </head>
 
 <body>
 
-<div id="score">0</div>
-
-<img src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" onclick="tap()">
+<div id="game">
+  <div id="wrap">
+    <div id="score">0</div>
+    <img id="tap-img" src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" alt="Artemwe">
+  </div>
+</div>
 
 <script>
-let score = 0;
+const scoreEl = document.getElementById("score");
+const tapImg = document.getElementById("tap-img");
+
+let score = Number(localStorage.getItem("artemwe_score")) || 0;
+scoreEl.textContent = score;
+
+function saveScore(){
+  localStorage.setItem("artemwe_score", String(score));
+}
 
 function tap(){
-score++;
-document.getElementById("score").innerText = score;
+  score++;
+  scoreEl.textContent = score;
+  saveScore();
 }
+
+tapImg.addEventListener("click", tap);
 </script>
 
 </body>
