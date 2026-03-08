@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Artemwe Tap</title>
+<style>
+body{
+text-align:center;
+font-family:Arial;
+background:black;
+color:white;
+}
+img{
+width:200px;
+cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1 id="score">0</h1>
+
+<img src="https://i.imgur.com/4AiXzf8.jpeg" onclick="tap()">
+
+<script>
+let score = 0;
+
+function tap(){
+score++;
+document.getElementById("score").innerText = score;
+}
+</script>
+
+</body>
+</html>
