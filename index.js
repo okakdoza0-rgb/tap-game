@@ -1,14 +1,12 @@
 const TelegramBot = require('node-telegram-bot-api');
 
-const token = process.env.8407383766:AAECu0jVu9Up7R-N3MehalGHJk-XYrSrtWY
-
-;
+const token = process.env.BOT_TOKEN;
 
 const bot = new TelegramBot(token, { polling: true });
 
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(
-    msg.chat.id,
+
+bot.sendMessage(msg.chat.id,
 `👋 Добро пожаловать в ArTap!
 
 👆 Тапай Artemwe
@@ -17,7 +15,8 @@ bot.onText(/\/start/, (msg) => {
 🏆 Стань лучшим игроком
 
 Начни тапать прямо сейчас 🚀`
-  );
+);
+
 });
 
-console.log('Bot started');
+console.log("Bot started");
