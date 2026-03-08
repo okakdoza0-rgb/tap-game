@@ -3,33 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <title>Artemwe Tap</title>
+
 <style>
+
 body{
-text-align:center;
-font-family:Arial;
 background:black;
 color:white;
+text-align:center;
+font-family:Arial;
+margin:0;
 }
+
+#score{
+font-size:40px;
+margin-top:40px;
+margin-bottom:20px;
+}
+
 img{
-width:200px;
+width:300px;
 cursor:pointer;
 }
+
 </style>
 </head>
 
 <body>
 
-<h1 id="score">0</h1>
+<div id="score">0</div>
 
-<img src="https://i.imgur.com/4AiXzf8.jpeg" onclick="tap()">
+<img src="artemwe.jpg" onclick="tap()">
 
 <script>
+
 let score = 0;
 
 function tap(){
 score++;
 document.getElementById("score").innerText = score;
 }
+
 </script>
 
 </body>
