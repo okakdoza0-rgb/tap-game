@@ -6,7 +6,6 @@
 <title>Artemwe Tap</title>
 
 <style>
-
 body{
 margin:0;
 background:black;
@@ -15,14 +14,13 @@ display:flex;
 justify-content:center;
 align-items:center;
 flex-direction:column;
-font-family:Arial, sans-serif;
-overflow:hidden;
+font-family:Arial;
 }
 
 #score{
 color:white;
 font-size:60px;
-margin-bottom:50px; /* расстояние над головой */
+margin-bottom:40px;
 font-weight:bold;
 }
 
@@ -35,7 +33,6 @@ transition:transform 0.1s;
 #tap:active{
 transform:scale(0.95);
 }
-
 </style>
 </head>
 
@@ -57,13 +54,9 @@ const scoreElement = document.getElementById("score");
 scoreElement.innerText = score;
 
 function tap(){
-
 score++;
-
 scoreElement.innerText = score;
-
 localStorage.setItem("score", score);
-
 }
 
 </script>
