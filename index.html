@@ -2,183 +2,71 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Artemwe Tap</title>
 
 <style>
-*{
-  box-sizing:border-box;
-  -webkit-tap-highlight-color:transparent;
-}
-
-html, body{
-  margin:0;
-  padding:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  background:black;
-  font-family:Arial, sans-serif;
-  user-select:none;
-  -webkit-user-select:none;
-  touch-action:manipulation;
-}
 
 body{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.game{
-  width:100%;
-  height:100%;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  position:relative;
-  overflow:hidden;
-}
-
-.top{
-  position:absolute;
-  top:28px;
-  left:0;
-  right:0;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:10px;
-  z-index:5;
+margin:0;
+background:black;
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+font-family:Arial, sans-serif;
+overflow:hidden;
 }
 
 #score{
-  color:white;
-  font-size:54px;
-  font-weight:bold;
-  line-height:1;
-}
-
-.energy-wrap{
-  width:220px;
-  text-align:center;
-}
-
-.energy-text{
-  color:white;
-  font-size:18px;
-  margin-bottom:6px;
-}
-
-.energy-bar{
-  width:100%;
-  height:12px;
-  background:#222;
-  border-radius:999px;
-  overflow:hidden;
-  border:1px solid #444;
-}
-
-.energy-fill{
-  height:100%;
-  width:100%;
-  background:white;
-  transition:width 0.2s ease;
-}
-
-.center{
-  position:relative;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  width:100%;
-  height:100%;
+color:white;
+font-size:60px;
+margin-bottom:50px; /* расстояние над головой */
+font-weight:bold;
 }
 
 #tap{
-  width:min(78vw, 320px);
-  cursor:pointer;
-  transition:transform 0.08s ease;
-  display:block;
+width:260px;
+cursor:pointer;
+transition:transform 0.1s;
 }
 
 #tap:active{
-  transform:scale(0.96);
+transform:scale(0.95);
 }
 
-.plus{
-  position:absolute;
-  color:white;
-  font-size:34px;
-  font-weight:bold;
-  pointer-events:none;
-  animation:floatUp 0.6s ease-out forwards;
-  text-shadow:0 0 10px rgba(255,255,255,0.3);
-}
-
-@keyframes floatUp{
-  0%{
-    opacity:1;
-    transform:translate(-50%, -20px) scale(0.9);
-  }
-  100%{
-    opacity:0;
-    transform:translate(-50%, -90px) scale(1.15);
-  }
-}
-
-.bottom{
-  position:absolute;
-  bottom:26px;
-  left:0;
-  right:0;
-  display:flex;
-  justify-content:center;
-  z-index:5;
-}
-
-button{
-  border:none;
-  border-radius:14px;
-  padding:12px 18px;
-  font-size:16px;
-  font-weight:bold;
-  cursor:pointer;
-}
 </style>
 </head>
 
 <body>
 
-<div class="game">
-  <div class="top">
-    <div id="score">🪙 0</div>
+<div id="score">0</div>
 
-    <div class="energy-wrap">
-      <div class="energy-text" id="energyText">⚡ 100 / 100</div>
-      <div class="energy-bar">
-        <div class="energy-fill" id="energyFill"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="center" id="tapArea">
-    <img
-      id="tap"
-      src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
-      alt="Artemwe"
-    >
-  </div>
-
-  <div class="bottom">
-    <button id="resetBtn">Сбросить счёт</button>
-  </div>
-</div>
+<img
+id="tap"
+src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
+onclick="tap()"
+>
 
 <script>
-const scoreEl = document.getElementById("score");
-const energyText = document.getElementById("energyText");
-const energyFill = document.getElementById("energyFill");
-const tap = document.getElementById("tap");
-const tapArea = document.get
+
+let score = Number(localStorage.getItem("score")) || 0;
+
+const scoreElement = document.getElementById("score");
+scoreElement.innerText = score;
+
+function tap(){
+
+score++;
+
+scoreElement.innerText = score;
+
+localStorage.setItem("score", score);
+
+}
+
+</script>
+
+</body>
+</html>
