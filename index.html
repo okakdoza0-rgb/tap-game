@@ -1,59 +1,69 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Artemwe Tap</title>
 
 <style>
+
 body{
 margin:0;
 background:black;
+height:100vh;
 display:flex;
 justify-content:center;
 align-items:center;
-height:100vh;
-font-family:Arial;
-}
-
-.game{
-position:relative;
-display:flex;
 flex-direction:column;
-align-items:center;
+font-family:Arial, sans-serif;
+overflow:hidden;
 }
 
 #score{
 color:white;
-font-size:50px;
-margin-bottom:20px; /* расстояние над головой */
+font-size:60px;
+margin-bottom:50px; /* расстояние над головой */
+font-weight:bold;
 }
 
-img{
+#tap{
 width:260px;
 cursor:pointer;
+transition:transform 0.1s;
 }
+
+#tap:active{
+transform:scale(0.95);
+}
+
 </style>
 </head>
 
 <body>
 
-<div class="game">
-
 <div id="score">0</div>
 
-<img src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" onclick="tap()">
-
-</div>
+<img
+id="tap"
+src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
+onclick="tap()"
+>
 
 <script>
 
 let score = Number(localStorage.getItem("score")) || 0;
-document.getElementById("score").innerText = score;
+
+const scoreElement = document.getElementById("score");
+scoreElement.innerText = score;
 
 function tap(){
+
 score++;
-document.getElementById("score").innerText = score;
+
+scoreElement.innerText = score;
+
 localStorage.setItem("score", score);
+
 }
 
 </script>
