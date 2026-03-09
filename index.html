@@ -177,8 +177,8 @@ color:white;
 background:#3d3d3d;
 }
 
-#offlineBox,
-#refReward{
+/* окно оффлайн дохода */
+#offlineBox{
 position:fixed;
 inset:0;
 background:rgba(0,0,0,0.55);
@@ -190,8 +190,7 @@ padding:20px;
 box-sizing:border-box;
 }
 
-#offlineCard,
-#refCard{
+#offlineCard{
 width:320px;
 max-width:100%;
 background:#1f2230;
@@ -201,8 +200,7 @@ text-align:center;
 box-shadow:0 10px 40px rgba(0,0,0,0.55);
 }
 
-#offlineCoins,
-#refCoinsBox{
+#offlineCoins{
 font-size:58px;
 font-weight:bold;
 display:flex;
@@ -212,16 +210,14 @@ gap:10px;
 margin-bottom:18px;
 }
 
-#offlineText,
-#refText{
+#offlineText{
 font-size:22px;
 font-weight:bold;
 line-height:1.3;
 margin-bottom:22px;
 }
 
-#claimBtn,
-#claimReferralBtn{
+#claimBtn{
 width:100%;
 padding:18px;
 font-size:22px;
@@ -298,18 +294,6 @@ onclick="tap()"
   </div>
 </div>
 
-<div id="refReward">
-  <div id="refCard">
-    <div id="refCoinsBox">🪙 <span id="refCoins">1000</span></div>
-    <div id="refText">
-      Игрок перешёл по твоей ссылке<br><br>
-      Вот твоя награда
-    </div>
-    <button id="claimReferralBtn" onclick="takeReward()">Спасибо, Artemwe 🤍</button>
-  </div>
-</div>
-
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 document.addEventListener('dblclick', function(e){
 e.preventDefault();
@@ -387,99 +371,4 @@ bought = true;
 
 localStorage.setItem("score", score);
 localStorage.setItem("clickPower", clickPower);
-localStorage.setItem("upgradeBought", "true");
-
-scoreElement.innerText = score;
-task.classList.add("done");
-buyBtn.disabled = true;
-}else{
-alert("Недостаточно монет");
-}
-}
-
-function claimOffline(){
-score += offlineCoins;
-scoreElement.innerText = score;
-
-localStorage.setItem("score", score);
-localStorage.setItem("last_time", Date.now());
-
-offlineCoins = 0;
-offlineBox.style.display = "none";
-}
-
-function openProfile(){
-document.getElementById("profileScreen").style.display = "flex";
-document.getElementById("profileCoins").innerText = formatCoins(score);
-document.getElementById("profileClick").innerText = clickPower;
-document.getElementById("profileIncome").innerText = clickPower;
-document.getElementById("profileUpgrade").innerText = bought ? "Куплено" : "Не куплено";
-}
-
-function closeProfile(){
-document.getElementById("profileScreen").style.display = "none";
-}
-
-function formatCoins(value){
-if (value >= 1000000) {
-return (value / 1000000).toFixed(2).replace(".", ",") + "M";
-}
-if (value >= 1000) {
-return (value / 1000).toFixed(2).replace(".", ",") + "K";
-}
-return value;
-}
-
-/* реферальная награда */
-const tg = window.Telegram && window.Telegram.WebApp;
-
-if (tg) {
-tg.ready();
-}
-
-const userId =
-tg &&
-tg.initDataUnsafe &&
-tg.initDataUnsafe.user
-? String(tg.initDataUnsafe.user.id)
-: null;
-
-async function checkReward(){
-if(!userId) return;
-
-try{
-let res = await fetch("/reward/" + userId);
-let data = await res.json();
-
-if(data.reward > 0){
-document.getElementById("refCoins").innerText = formatCoins(data.reward);
-document.getElementById("refReward").style.display = "flex";
-}
-}catch(e){}
-}
-
-async function takeReward(){
-if(!userId) return;
-
-try{
-let res = await fetch("/claim",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify({id:userId})
-});
-
-let data = await res.json();
-
-score += data.reward;
-scoreElement.innerText = score;
-localStorage.setItem("score", score);
-
-document.getElementById("refReward").style.display = "none";
-}catch(e){}
-}
-
-checkReward();
-</script>
-
-</body>
-</html>
+localStorage.setItem("up
