@@ -28,26 +28,15 @@ font-weight:bold;
 display:flex;
 align-items:center;
 gap:10px;
-z-index:2;
-}
-
-#tap-wrap{
-position:relative;
-display:inline-block;
-z-index:2;
 }
 
 #tap{
 width:260px;
 cursor:pointer;
 transition:transform 0.1s;
-user-select:none;
--webkit-user-select:none;
 }
 
-#tap:active{
-transform:scale(0.95);
-}
+#tap:active{ transform:scale(0.95); }
 
 .plus{
 position:absolute;
@@ -62,106 +51,81 @@ animation:floatUp 0.8s ease-out forwards;
 }
 
 @keyframes floatUp{
-0%{
-opacity:1;
-transform:translateX(-50%) translateY(0);
-}
-100%{
-opacity:0;
-transform:translateX(-50%) translateY(-80px);
-}
+0%{opacity:1; transform:translateX(-50%) translateY(0);}
+100%{opacity:0; transform:translateX(-50%) translateY(-80px);}
 }
 
-/* нижняя кнопка */
+/* кнопка улучшений */
 #upgradeBtn{
 position:fixed;
 left:20px;
 bottom:20px;
-background:rgba(255,255,255,0.12);
+background:rgba(255,255,255,0.15);
+border:none;
 color:white;
-border:1px solid rgba(255,255,255,0.25);
-border-radius:18px;
-padding:14px 18px;
 font-size:18px;
-font-weight:bold;
-backdrop-filter:blur(8px);
--webkit-backdrop-filter:blur(8px);
-z-index:5;
+padding:12px 18px;
+border-radius:14px;
 }
 
 /* окно улучшений */
 #upgradeScreen{
 position:fixed;
 inset:0;
-background:rgba(0,0,0,0.92);
+background:rgba(0,0,0,0.95);
 display:none;
 flex-direction:column;
 padding:20px;
-box-sizing:border-box;
-z-index:20;
 color:white;
-}
-
-#upgradeTop{
-display:flex;
-align-items:center;
-justify-content:space-between;
-margin-bottom:25px;
 }
 
 #backBtn{
-background:rgba(255,255,255,0.12);
-color:white;
+background:none;
 border:none;
-border-radius:14px;
-padding:12px 16px;
-font-size:18px;
-font-weight:bold;
+color:white;
+font-size:22px;
+margin-bottom:20px;
 }
 
-#upgradeTitle{
-font-size:32px;
-font-weight:bold;
-text-align:center;
-flex:1;
-}
-
-.upgradeCard{
+.upgrade{
 background:rgba(255,255,255,0.08);
-border:1px solid rgba(255,255,255,0.12);
-border-radius:22px;
-padding:18px;
+border-radius:16px;
+padding:16px;
 margin-bottom:14px;
+position:relative;
 }
 
-.upgradeName{
-font-size:24px;
-font-weight:bold;
-margin-bottom:8px;
+.upgrade.done{
+background:rgba(0,0,0,0.6);
 }
 
-.upgradeDesc{
-font-size:18px;
-opacity:0.9;
-margin-bottom:12px;
+.doneLine{
+position:absolute;
+left:0;
+right:0;
+top:50%;
+height:4px;
+background:red;
+display:none;
+}
+
+.upgrade.done .doneLine{
+display:block;
 }
 
 .buyBtn{
+margin-top:10px;
 width:100%;
+padding:10px;
+border:none;
+border-radius:10px;
 background:#5865f2;
 color:white;
-border:none;
-border-radius:16px;
-padding:14px;
-font-size:18px;
-font-weight:bold;
+font-size:16px;
 }
 
-#powerInfo{
-font-size:20px;
-margin-bottom:18px;
-text-align:center;
-opacity:0.95;
+.buyBtn:disabled{
+background:#444;
 }
 </style>
 </head>
@@ -172,94 +136,113 @@ opacity:0.95;
 🪙 <span id="scoreNumber">0</span>
 </div>
 
-<div id="tap-wrap">
-<img
-id="tap"
-src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
-onclick="tap()"
->
-</div>
+<img id="tap" src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" onclick="tap()">
 
 <button id="upgradeBtn" onclick="openUpgrades()">⚡ Улучшения</button>
 
 <div id="upgradeScreen">
-  <div id="upgradeTop">
-    <button id="backBtn" onclick="closeUpgrades()">← Назад</button>
-    <div id="upgradeTitle">Улучшения</div>
-    <div style="width:90px;"></div>
-  </div>
 
-  <div id="powerInfo">
-    Сила клика: <span id="tapPowerText">1</span>
-  </div>
+<button id="backBtn" onclick="closeUpgrades()">← Назад</button>
 
-  <div class="upgradeCard">
-    <div class="upgradeName">⚡ Сила клика</div>
-    <div class="upgradeDesc">Каждое улучшение даёт +1 монету за тап</div>
-    <button class="buyBtn" onclick="buyTapPower()">Купить за <span id="tapUpgradePrice">100</span> 🪙</button>
-  </div>
+<div id="upgrade1" class="upgrade">
+<div class="doneLine"></div>
+<div>⚡ +1 клик</div>
+<div>Цена: 500 🪙</div>
+<button class="buyBtn" onclick="buyUpgrade(1)">Купить</button>
+</div>
+
+<div id="upgrade2" class="upgrade">
+<div class="doneLine"></div>
+<div>⚡ +1 клик</div>
+<div>Цена: 2000 🪙</div>
+<button class="buyBtn" onclick="buyUpgrade(2)">Купить</button>
+</div>
+
+<div id="upgrade3" class="upgrade">
+<div class="doneLine"></div>
+<div>⚡ +1 клик</div>
+<div>Цена: 10000 🪙</div>
+<button class="buyBtn" onclick="buyUpgrade(3)">Купить</button>
+</div>
+
 </div>
 
 <script>
-document.addEventListener('dblclick', function(e){
-e.preventDefault();
-});
-
 let score = Number(localStorage.getItem("score")) || 0;
 let tapPower = Number(localStorage.getItem("tap_power")) || 1;
-let tapUpgradePrice = Number(localStorage.getItem("tap_upgrade_price")) || 100;
+
+let u1 = localStorage.getItem("u1") === "true";
+let u2 = localStorage.getItem("u2") === "true";
+let u3 = localStorage.getItem("u3") === "true";
 
 const scoreElement = document.getElementById("scoreNumber");
-const tapWrap = document.getElementById("tap-wrap");
-const tapPowerText = document.getElementById("tapPowerText");
-const tapUpgradePriceText = document.getElementById("tapUpgradePrice");
-
 scoreElement.innerText = score;
-tapPowerText.innerText = tapPower;
-tapUpgradePriceText.innerText = tapUpgradePrice;
 
 function tap(){
 score += tapPower;
 scoreElement.innerText = score;
-localStorage.setItem("score", score);
-
-const plus = document.createElement("div");
-plus.innerText = "+" + tapPower;
-plus.className = "plus";
-
-tapWrap.appendChild(plus);
-
-setTimeout(() => {
-plus.remove();
-}, 800);
+localStorage.setItem("score",score);
 }
 
 function openUpgrades(){
-document.getElementById("upgradeScreen").style.display = "flex";
+document.getElementById("upgradeScreen").style.display="flex";
+updateUpgrades();
 }
 
 function closeUpgrades(){
-document.getElementById("upgradeScreen").style.display = "none";
+document.getElementById("upgradeScreen").style.display="none";
 }
 
-function buyTapPower(){
-if(score < tapUpgradePrice){
-alert("Недостаточно монет");
-return;
+function buyUpgrade(id){
+
+if(id===1 && !u1 && score>=500){
+score-=500;
+tapPower+=1;
+u1=true;
+localStorage.setItem("u1",true);
 }
 
-score -= tapUpgradePrice;
-tapPower += 1;
-tapUpgradePrice = Math.floor(tapUpgradePrice * 1.8);
-
-scoreElement.innerText = score;
-tapPowerText.innerText = tapPower;
-tapUpgradePriceText.innerText = tapUpgradePrice;
-
-localStorage.setItem("score", score);
-localStorage.setItem("tap_power", tapPower);
-localStorage.setItem("tap_upgrade_price", tapUpgradePrice);
+if(id===2 && !u2 && score>=2000){
+score-=2000;
+tapPower+=1;
+u2=true;
+localStorage.setItem("u2",true);
 }
+
+if(id===3 && !u3 && score>=10000){
+score-=10000;
+tapPower+=1;
+u3=true;
+localStorage.setItem("u3",true);
+}
+
+localStorage.setItem("tap_power",tapPower);
+localStorage.setItem("score",score);
+
+scoreElement.innerText=score;
+
+updateUpgrades();
+}
+
+function updateUpgrades(){
+
+if(u1){
+document.getElementById("upgrade1").classList.add("done");
+document.querySelector("#upgrade1 .buyBtn").disabled=true;
+}
+
+if(u2){
+document.getElementById("upgrade2").classList.add("done");
+document.querySelector("#upgrade2 .buyBtn").disabled=true;
+}
+
+if(u3){
+document.getElementById("upgrade3").classList.add("done");
+document.querySelector("#upgrade3 .buyBtn").disabled=true;
+}
+
+}
+updateUpgrades();
 </script>
 
 </body>
