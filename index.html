@@ -2,14 +2,16 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <title>Artemwe Tap</title>
 
 <style>
 
 body{
 margin:0;
-background:black;
+background:url("1F67980F-7FC8-460D-B978-4E22B48E7767.png") center/cover no-repeat;
 height:100vh;
 display:flex;
 justify-content:center;
@@ -17,32 +19,74 @@ align-items:center;
 flex-direction:column;
 font-family:Arial;
 overflow:hidden;
-color:white;
+position:relative;
+touch-action:manipulation;
 }
 
 #score{
+color:white;
 font-size:60px;
 margin-bottom:40px;
 font-weight:bold;
 display:flex;
-gap:10px;
 align-items:center;
+gap:10px;
+}
+
+#tap-wrap{
+position:relative;
+display:inline-block;
 }
 
 #tap{
 width:260px;
 cursor:pointer;
+transition:transform 0.1s;
+user-select:none;
+-webkit-user-select:none;
 }
+
+#tap:active{
+transform:scale(0.95);
+}
+
+.plus{
+position:absolute;
+left:50%;
+top:20px;
+transform:translateX(-50%);
+color:white;
+font-size:32px;
+font-weight:bold;
+pointer-events:none;
+animation:floatUp 0.8s ease-out forwards;
+}
+
+@keyframes floatUp{
+0%{
+opacity:1;
+transform:translateX(-50%) translateY(0);
+}
+100%{
+opacity:0;
+transform:translateX(-50%) translateY(-80px);
+}
+}
+
+/* КНОПКА УЛУЧШЕНИЯ */
 
 #upgradeBtn{
 position:fixed;
 bottom:30px;
 left:20px;
-background:#333;
+background:#222;
+color:white;
 padding:12px 18px;
 border-radius:15px;
 cursor:pointer;
 }
+
+/* ЭКРАН УЛУЧШЕНИЙ */
 
 #upgradeScreen{
 position:fixed;
@@ -55,6 +99,7 @@ display:none;
 flex-direction:column;
 align-items:center;
 justify-content:center;
+color:white;
 }
 
 #task{
@@ -93,8 +138,8 @@ cursor:pointer;
 position:absolute;
 top:20px;
 left:20px;
+font-size:22px;
 cursor:pointer;
-font-size:20px;
 }
 
 </style>
@@ -102,9 +147,17 @@ font-size:20px;
 
 <body>
 
-<div id="score">🪙 <span id="scoreNumber">0</span></div>
+<div id="score">
+🪙 <span id="scoreNumber">0</span>
+</div>
 
-<img id="tap" src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" onclick="tap()">
+<div id="tap-wrap">
+<img
+id="tap"
+src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
+onclick="tap()"
+>
+</div>
 
 <div id="upgradeBtn" onclick="openUpgrades()">⚡ Улучшения</div>
 
@@ -130,11 +183,16 @@ font-size:20px;
 
 <script>
 
+document.addEventListener('dblclick', function(e){
+e.preventDefault();
+});
+
 let score = Number(localStorage.getItem("score")) || 0;
 let clickPower = Number(localStorage.getItem("clickPower")) || 1;
 let bought = localStorage.getItem("upgradeBought") === "true";
 
 const scoreElement = document.getElementById("scoreNumber");
+const tapWrap = document.getElementById("tap-wrap");
 const task = document.getElementById("task");
 
 scoreElement.innerText = score;
@@ -142,6 +200,8 @@ scoreElement.innerText = score;
 if(bought){
 task.classList.add("done");
 }
+
+/* ТАП */
 
 function tap(){
 
@@ -151,7 +211,23 @@ scoreElement.innerText = score;
 
 localStorage.setItem("score", score);
 
+const plus = document.createElement("div");
+
+plus.innerText = "+" + clickPower;
+
+plus.className = "plus";
+
+tapWrap.appendChild(plus);
+
+setTimeout(() => {
+
+plus.remove();
+
+}, 800);
+
 }
+
+/* ОТКРЫТЬ УЛУЧШЕНИЯ */
 
 function openUpgrades(){
 
@@ -159,11 +235,15 @@ document.getElementById("upgradeScreen").style.display = "flex";
 
 }
 
+/* ЗАКРЫТЬ УЛУЧШЕНИЯ */
+
 function closeUpgrades(){
 
 document.getElementById("upgradeScreen").style.display = "none";
 
 }
+
+/* ПОКУПКА */
 
 function buyUpgrade(){
 
