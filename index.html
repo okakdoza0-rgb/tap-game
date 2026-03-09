@@ -2,13 +2,10 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
 <title>Artemwe Tap</title>
 
 <style>
-
 body{
 margin:0;
 background:url("1F67980F-7FC8-460D-B978-4E22B48E7767.png") center/cover no-repeat;
@@ -21,6 +18,7 @@ font-family:Arial;
 overflow:hidden;
 position:relative;
 touch-action:manipulation;
+color:white;
 }
 
 #score{
@@ -31,11 +29,13 @@ font-weight:bold;
 display:flex;
 align-items:center;
 gap:10px;
+z-index:2;
 }
 
 #tap-wrap{
 position:relative;
 display:inline-block;
+z-index:2;
 }
 
 #tap{
@@ -73,20 +73,20 @@ transform:translateX(-50%) translateY(-80px);
 }
 }
 
-/* КНОПКА УЛУЧШЕНИЯ */
-
 #upgradeBtn{
 position:fixed;
 bottom:30px;
 left:20px;
-background:#222;
+background:rgba(20,20,30,0.8);
 color:white;
-padding:12px 18px;
-border-radius:15px;
+padding:14px 18px;
+border-radius:18px;
 cursor:pointer;
+font-size:18px;
+font-weight:bold;
+border:1px solid rgba(255,255,255,0.12);
+z-index:5;
 }
-
-/* ЭКРАН УЛУЧШЕНИЙ */
 
 #upgradeScreen{
 position:fixed;
@@ -94,44 +94,13 @@ top:0;
 left:0;
 width:100%;
 height:100%;
-background:black;
+background:rgba(0,0,0,0.95);
 display:none;
 flex-direction:column;
 align-items:center;
 justify-content:center;
 color:white;
-}
-
-#task{
-background:#222;
-padding:20px;
-border-radius:15px;
-width:260px;
-text-align:center;
-}
-
-#task.done{
-background:#111;
-opacity:0.6;
-}
-
-.redLine{
-height:4px;
-background:red;
-margin-top:10px;
-display:none;
-}
-
-#task.done .redLine{
-display:block;
-}
-
-button{
-margin-top:10px;
-padding:10px;
-border:none;
-border-radius:10px;
-cursor:pointer;
+z-index:20;
 }
 
 #back{
@@ -140,8 +109,107 @@ top:20px;
 left:20px;
 font-size:22px;
 cursor:pointer;
+background:rgba(255,255,255,0.08);
+padding:14px 18px;
+border-radius:18px;
 }
 
+#task{
+background:rgba(25,25,35,0.92);
+padding:20px;
+border-radius:18px;
+width:280px;
+text-align:center;
+border:1px solid rgba(255,255,255,0.08);
+}
+
+#task.done{
+background:rgba(0,0,0,0.75);
+opacity:0.65;
+}
+
+.redLine{
+height:4px;
+background:red;
+margin-top:12px;
+display:none;
+border-radius:10px;
+}
+
+#task.done .redLine{
+display:block;
+}
+
+button{
+margin-top:12px;
+padding:12px 16px;
+border:none;
+border-radius:12px;
+cursor:pointer;
+font-size:16px;
+font-weight:bold;
+}
+
+#task button{
+width:100%;
+background:#5865f2;
+color:white;
+}
+
+#task button:disabled{
+background:#3d3d3d;
+}
+
+/* окно оффлайн дохода */
+#offlineBox{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.55);
+display:none;
+justify-content:center;
+align-items:center;
+z-index:40;
+padding:20px;
+box-sizing:border-box;
+}
+
+#offlineCard{
+width:320px;
+max-width:100%;
+background:#1f2230;
+border-radius:28px;
+padding:24px 20px;
+text-align:center;
+box-shadow:0 10px 40px rgba(0,0,0,0.55);
+}
+
+#offlineCoins{
+font-size:58px;
+font-weight:bold;
+display:flex;
+justify-content:center;
+align-items:center;
+gap:10px;
+margin-bottom:18px;
+}
+
+#offlineText{
+font-size:22px;
+font-weight:bold;
+line-height:1.3;
+margin-bottom:22px;
+}
+
+#claimBtn{
+width:100%;
+padding:18px;
+font-size:22px;
+font-weight:bold;
+border:none;
+border-radius:22px;
+background:#5865f2;
+color:white;
+}
 </style>
 </head>
 
@@ -162,27 +230,28 @@ onclick="tap()"
 <div id="upgradeBtn" onclick="openUpgrades()">⚡ Улучшения</div>
 
 <div id="upgradeScreen">
-
 <div id="back" onclick="closeUpgrades()">← Назад</div>
 
 <h2>Улучшения</h2>
 
 <div id="task">
-
-<div>⚡ +1 клик</div>
-
-<div>Цена: 5000 🪙</div>
-
-<button onclick="buyUpgrade()">Купить</button>
-
+<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⚡ +1 клик</div>
+<div style="font-size:18px;">Теперь будет 2 монеты за тап</div>
+<div style="font-size:18px;margin-top:8px;">Цена: 5000 🪙</div>
+<button id="buyBtn" onclick="buyUpgrade()">Купить</button>
 <div class="redLine"></div>
-
+</div>
 </div>
 
+<div id="offlineBox">
+  <div id="offlineCard">
+    <div id="offlineCoins">🪙 <span id="offlineAmount">0</span></div>
+    <div id="offlineText">Artemwe начал работать для вас</div>
+    <button id="claimBtn" onclick="claimOffline()">Спасибо, Artemwe 🤍</button>
+  </div>
 </div>
 
 <script>
-
 document.addEventListener('dblclick', function(e){
 e.preventDefault();
 });
@@ -190,89 +259,107 @@ e.preventDefault();
 let score = Number(localStorage.getItem("score")) || 0;
 let clickPower = Number(localStorage.getItem("clickPower")) || 1;
 let bought = localStorage.getItem("upgradeBought") === "true";
+let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
+let offlineCoins = 0;
 
 const scoreElement = document.getElementById("scoreNumber");
 const tapWrap = document.getElementById("tap-wrap");
 const task = document.getElementById("task");
+const buyBtn = document.getElementById("buyBtn");
+const offlineBox = document.getElementById("offlineBox");
+const offlineAmount = document.getElementById("offlineAmount");
 
 scoreElement.innerText = score;
 
 if(bought){
 task.classList.add("done");
+buyBtn.disabled = true;
 }
 
-/* ТАП */
+// оффлайн доход
+const now = Date.now();
+const secondsPassed = Math.floor((now - lastTime) / 1000);
+
+// 1 или 2 монеты каждые 5 сек, зависит от clickPower
+offlineCoins = Math.floor(secondsPassed / 5) * clickPower;
+
+if(offlineCoins > 0){
+offlineAmount.innerText = formatCoins(offlineCoins);
+offlineBox.style.display = "flex";
+}
+
+// онлайн доход каждые 5 секунд
+setInterval(() => {
+score += clickPower;
+scoreElement.innerText = score;
+localStorage.setItem("score", score);
+localStorage.setItem("last_time", Date.now());
+}, 5000);
 
 function tap(){
-
 score += clickPower;
-
 scoreElement.innerText = score;
-
 localStorage.setItem("score", score);
+localStorage.setItem("last_time", Date.now());
 
 const plus = document.createElement("div");
-
 plus.innerText = "+" + clickPower;
-
 plus.className = "plus";
-
 tapWrap.appendChild(plus);
 
 setTimeout(() => {
-
 plus.remove();
-
 }, 800);
-
 }
-
-/* ОТКРЫТЬ УЛУЧШЕНИЯ */
 
 function openUpgrades(){
-
 document.getElementById("upgradeScreen").style.display = "flex";
-
 }
-
-/* ЗАКРЫТЬ УЛУЧШЕНИЯ */
 
 function closeUpgrades(){
-
 document.getElementById("upgradeScreen").style.display = "none";
-
 }
 
-/* ПОКУПКА */
-
 function buyUpgrade(){
-
 if(bought) return;
 
 if(score >= 5000){
-
 score -= 5000;
-
 clickPower = 2;
-
 bought = true;
 
 localStorage.setItem("score", score);
 localStorage.setItem("clickPower", clickPower);
-localStorage.setItem("upgradeBought", true);
+localStorage.setItem("upgradeBought", "true");
 
 scoreElement.innerText = score;
-
 task.classList.add("done");
-
+buyBtn.disabled = true;
 }else{
-
 alert("Недостаточно монет");
-
+}
 }
 
+function claimOffline(){
+score += offlineCoins;
+scoreElement.innerText = score;
+
+localStorage.setItem("score", score);
+localStorage.setItem("last_time", Date.now());
+
+offlineCoins = 0;
+offlineBox.style.display = "none";
 }
 
+function formatCoins(value){
+if (value >= 1000000) {
+return (value / 1000000).toFixed(2).replace(".", ",") + "M";
+}
+if (value >= 1000) {
+return (value / 1000).toFixed(2).replace(".", ",") + "K";
+}
+return value;
+}
 </script>
 
 </body>
