@@ -69,6 +69,58 @@ opacity:0;
 transform:translateX(-50%) translateY(-80px);
 }
 }
+
+/* окно оффлайн дохода */
+#offlineBox{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.6);
+display:none;
+justify-content:center;
+align-items:center;
+z-index:999;
+}
+
+#offlineCard{
+width:320px;
+max-width:90%;
+background:#1e1f2b;
+border-radius:28px;
+padding:24px 20px;
+text-align:center;
+box-shadow:0 10px 40px rgba(0,0,0,0.5);
+}
+
+#offlineCoins{
+font-size:54px;
+font-weight:bold;
+color:white;
+display:flex;
+justify-content:center;
+align-items:center;
+gap:12px;
+margin-bottom:18px;
+}
+
+#offlineText{
+font-size:22px;
+font-weight:bold;
+color:white;
+line-height:1.3;
+margin-bottom:24px;
+}
+
+#claimBtn{
+width:100%;
+padding:20px;
+font-size:22px;
+font-weight:bold;
+border:none;
+border-radius:24px;
+background:#5865f2;
+color:white;
+cursor:pointer;
+}
 </style>
 </head>
 
@@ -86,6 +138,14 @@ onclick="tap()"
 >
 </div>
 
+<div id="offlineBox">
+  <div id="offlineCard">
+    <div id="offlineCoins">🪙 <span id="offlineAmount">0</span></div>
+    <div id="offlineText">Биржа начала работать для вас</div>
+    <button id="claimBtn" onclick="claimOffline()">Спасибо, Bybit 🤍</button>
+  </div>
+</div>
+
 <script>
 document.addEventListener('dblclick', function(e){
 e.preventDefault();
@@ -93,22 +153,26 @@ e.preventDefault();
 
 let score = Number(localStorage.getItem("score")) || 0;
 let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
+let offlineCoins = 0;
 
 const scoreElement = document.getElementById("scoreNumber");
 const tapWrap = document.getElementById("tap-wrap");
+const offlineBox = document.getElementById("offlineBox");
+const offlineAmount = document.getElementById("offlineAmount");
 
-// начисление оффлайн-монет: 1 монета каждые 5 секунд
+// считаем сколько накопилось пока игрока не было
 const now = Date.now();
 const secondsPassed = Math.floor((now - lastTime) / 1000);
-const idleCoins = Math.floor(secondsPassed / 5);
+offlineCoins = Math.floor(secondsPassed / 5);
 
-if (idleCoins > 0) {
-score += idleCoins;
-localStorage.setItem("score", score);
-}
-
+// показываем текущий счёт
 scoreElement.innerText = score;
-localStorage.setItem("last_time", now);
+
+// если накопились оффлайн-монеты — показываем окно
+if (offlineCoins > 0) {
+offlineAmount.innerText = formatCoins(offlineCoins);
+offlineBox.style.display = "flex";
+}
 
 // онлайн-доход: 1 монета каждые 5 секунд
 setInterval(() => {
@@ -117,6 +181,17 @@ scoreElement.innerText = score;
 localStorage.setItem("score", score);
 localStorage.setItem("last_time", Date.now());
 }, 5000);
+
+function claimOffline(){
+score += offlineCoins;
+scoreElement.innerText = score;
+
+localStorage.setItem("score", score);
+localStorage.setItem("last_time", Date.now());
+
+offlineCoins = 0;
+offlineBox.style.display = "none";
+}
 
 function tap(){
 score++;
@@ -133,6 +208,16 @@ tapWrap.appendChild(plus);
 setTimeout(() => {
 plus.remove();
 }, 800);
+}
+
+function formatCoins(value){
+if (value >= 1000000) {
+return (value / 1000000).toFixed(2).replace(".", ",") + "M";
+}
+if (value >= 1000) {
+return (value / 1000).toFixed(2).replace(".", ",") + "K";
+}
+return value;
 }
 </script>
 
