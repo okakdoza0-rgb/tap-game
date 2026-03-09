@@ -24,6 +24,9 @@ color:white;
 font-size:60px;
 margin-bottom:40px;
 font-weight:bold;
+display:flex;
+align-items:center;
+gap:10px;
 }
 
 #tap-wrap{
@@ -68,38 +71,40 @@ transform:translateX(-50%) translateY(-80px);
 
 <body>
 
-<div id="score">0</div>
+<div id="score">
+🪙 <span id="scoreNumber">0</span>
+</div>
 
 <div id="tap-wrap">
-  <img
-  id="tap"
-  src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
-  onclick="tap()"
-  >
+<img
+id="tap"
+src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
+onclick="tap()"
+>
 </div>
 
 <script>
 let score = Number(localStorage.getItem("score")) || 0;
 
-const scoreElement = document.getElementById("score");
+const scoreElement = document.getElementById("scoreNumber");
 const tapWrap = document.getElementById("tap-wrap");
 
 scoreElement.innerText = score;
 
 function tap(){
-  score++;
-  scoreElement.innerText = score;
-  localStorage.setItem("score", score);
+score++;
+scoreElement.innerText = score;
+localStorage.setItem("score", score);
 
-  const plus = document.createElement("div");
-  plus.innerText = "+1";
-  plus.className = "plus";
+const plus = document.createElement("div");
+plus.innerText = "+1";
+plus.className = "plus";
 
-  tapWrap.appendChild(plus);
+tapWrap.appendChild(plus);
 
-  setTimeout(() => {
-    plus.remove();
-  }, 800);
+setTimeout(() => {
+plus.remove();
+}, 800);
 }
 </script>
 
