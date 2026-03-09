@@ -2,13 +2,10 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
 <title>Artemwe Tap</title>
 
 <style>
-
 body{
 margin:0;
 background:url("1F67980F-7FC8-460D-B978-4E22B48E7767.png") center/cover no-repeat;
@@ -72,7 +69,6 @@ opacity:0;
 transform:translateX(-50%) translateY(-80px);
 }
 }
-
 </style>
 </head>
 
@@ -91,42 +87,53 @@ onclick="tap()"
 </div>
 
 <script>
-
 document.addEventListener('dblclick', function(e){
 e.preventDefault();
 });
 
 let score = Number(localStorage.getItem("score")) || 0;
+let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
 
 const scoreElement = document.getElementById("scoreNumber");
 const tapWrap = document.getElementById("tap-wrap");
 
+// начисление оффлайн-монет: 1 монета каждые 5 секунд
+const now = Date.now();
+const secondsPassed = Math.floor((now - lastTime) / 1000);
+const idleCoins = Math.floor(secondsPassed / 5);
+
+if (idleCoins > 0) {
+score += idleCoins;
+localStorage.setItem("score", score);
+}
+
 scoreElement.innerText = score;
+localStorage.setItem("last_time", now);
+
+// онлайн-доход: 1 монета каждые 5 секунд
+setInterval(() => {
+score++;
+scoreElement.innerText = score;
+localStorage.setItem("score", score);
+localStorage.setItem("last_time", Date.now());
+}, 5000);
 
 function tap(){
-
 score++;
-
 scoreElement.innerText = score;
-
 localStorage.setItem("score", score);
+localStorage.setItem("last_time", Date.now());
 
 const plus = document.createElement("div");
-
 plus.innerText = "+1";
-
 plus.className = "plus";
 
 tapWrap.appendChild(plus);
 
 setTimeout(() => {
-
 plus.remove();
-
 }, 800);
-
 }
-
 </script>
 
 </body>
