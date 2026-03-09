@@ -15,23 +15,14 @@ justify-content:center;
 align-items:center;
 flex-direction:column;
 font-family:Arial;
+color:white;
 overflow:hidden;
-position:relative;
 }
 
 #score{
-color:white;
 font-size:60px;
-margin-bottom:40px;
+margin-bottom:30px;
 font-weight:bold;
-display:flex;
-align-items:center;
-gap:10px;
-}
-
-#tap-wrap{
-position:relative;
-display:inline-block;
 }
 
 #tap{
@@ -44,67 +35,80 @@ transition:transform 0.1s;
 transform:scale(0.95);
 }
 
-.plus{
-position:absolute;
-left:50%;
-top:20px;
-transform:translateX(-50%);
-color:white;
-font-size:32px;
-font-weight:bold;
-pointer-events:none;
-animation:floatUp 0.8s ease-out forwards;
+button{
+margin-top:30px;
+padding:10px 20px;
+font-size:18px;
+border:none;
+border-radius:10px;
+cursor:pointer;
 }
 
-@keyframes floatUp{
-0%{
-opacity:1;
-transform:translateX(-50%) translateY(0);
+#leaderboard{
+display:none;
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:black;
+flex-direction:column;
+align-items:center;
+justify-content:center;
 }
-100%{
-opacity:0;
-transform:translateX(-50%) translateY(-80px);
+
+#leaderboard h2{
+margin-bottom:20px;
 }
+
+.player{
+font-size:22px;
+margin:5px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="score">
-🪙 <span id="scoreNumber">0</span>
-</div>
+<div id="score">🪙 0</div>
 
-<div id="tap-wrap">
 <img
 id="tap"
 src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
 onclick="tap()"
 >
+
+<button onclick="openTop()">🏆 Топ игроков</button>
+
+<div id="leaderboard">
+<h2>🏆 Топ игроков</h2>
+
+<div class="player">1. Artemwe — 20000 🪙</div>
+<div class="player">2. Player — 15000 🪙</div>
+<div class="player">3. User — 10000 🪙</div>
+
+<br>
+<button onclick="closeTop()">Назад</button>
 </div>
 
 <script>
 let score = Number(localStorage.getItem("score")) || 0;
+const scoreElement = document.getElementById("score");
 
-const scoreElement = document.getElementById("scoreNumber");
-const tapWrap = document.getElementById("tap-wrap");
-
-scoreElement.innerText = score;
+scoreElement.innerText = "🪙 " + score;
 
 function tap(){
 score++;
-scoreElement.innerText = score;
+scoreElement.innerText = "🪙 " + score;
 localStorage.setItem("score", score);
+}
 
-const plus = document.createElement("div");
-plus.innerText = "+1";
-plus.className = "plus";
+function openTop(){
+document.getElementById("leaderboard").style.display="flex";
+}
 
-tapWrap.appendChild(plus);
-
-setTimeout(() => {
-plus.remove();
-}, 800);
+function closeTop(){
+document.getElementById("leaderboard").style.display="none";
 }
 </script>
 
