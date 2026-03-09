@@ -36,7 +36,7 @@ url: "https://tap-game-oxjs.onrender.com"
 
 });
 
-// сервер для Render
+// сервер для Render (чтобы Render не выключал бота)
 const app = express();
 
 app.get('/', (req, res) => {
