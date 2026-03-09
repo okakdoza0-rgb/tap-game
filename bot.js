@@ -4,7 +4,7 @@ const express = require('express');
 const token = process.env.BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-// команда /start
+// /start
 bot.onText(/\/start/, (msg) => {
 
   bot.sendMessage(
@@ -24,7 +24,24 @@ parse_mode: "Markdown"
 
 });
 
-// сервер для Render (чтобы Render не выключал бота)
+// /invite
+bot.onText(/\/invite/, (msg) => {
+
+const userId = msg.from.id;
+
+bot.sendMessage(
+msg.chat.id,
+`👥 Пригласи друзей
+
+Твоя ссылка:
+https://t.me/ArTapclicker_bot?start=${userId}
+
+За каждого друга +1000 🪙`
+);
+
+});
+
+// сервер для Render
 const app = express();
 
 app.get('/', (req, res) => {
