@@ -6,6 +6,7 @@
 <title>Artemwe Tap</title>
 
 <style>
+
 body{
 margin:0;
 background:black;
@@ -66,6 +67,7 @@ border:none;
 border-radius:10px;
 cursor:pointer;
 }
+
 </style>
 </head>
 
@@ -76,53 +78,65 @@ cursor:pointer;
 <img id="tap" src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" onclick="tap()">
 
 <div id="task">
-<div>⚡ Получить 2 клика</div>
+<div>⚡ +1 клик</div>
 <div>Цена: 5000 🪙</div>
-<button id="buyBtn" onclick="buyUpgrade()">Купить</button>
+<button onclick="buyUpgrade()">Купить</button>
 <div class="redLine"></div>
 </div>
 
 <script>
+
 let score = Number(localStorage.getItem("score")) || 0;
 let clickPower = Number(localStorage.getItem("clickPower")) || 1;
 let bought = localStorage.getItem("upgradeBought") === "true";
 
 const scoreElement = document.getElementById("scoreNumber");
 const task = document.getElementById("task");
-const buyBtn = document.getElementById("buyBtn");
 
 scoreElement.innerText = score;
 
 if(bought){
 task.classList.add("done");
-buyBtn.disabled = true;
 }
 
 function tap(){
+
 score += clickPower;
+
 scoreElement.innerText = score;
+
 localStorage.setItem("score", score);
+
 }
 
 function buyUpgrade(){
+
 if(bought) return;
 
 if(score >= 5000){
+
 score -= 5000;
+
 clickPower = 2;
+
 bought = true;
 
 localStorage.setItem("score", score);
 localStorage.setItem("clickPower", clickPower);
-localStorage.setItem("upgradeBought", "true");
+localStorage.setItem("upgradeBought", true);
 
 scoreElement.innerText = score;
+
 task.classList.add("done");
-buyBtn.disabled = true;
+
 }else{
+
 alert("Недостаточно монет");
+
 }
+
 }
+
 </script>
 
 </body>
