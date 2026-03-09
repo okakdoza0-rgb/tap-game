@@ -85,40 +85,16 @@ onclick="tap()"
 
 <script>
 let score = Number(localStorage.getItem("score")) || 0;
-let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
 
 const scoreElement = document.getElementById("scoreNumber");
 const tapWrap = document.getElementById("tap-wrap");
 
-// считаем сколько времени игрока не было
-const now = Date.now();
-const secondsPassed = Math.floor((now - lastTime) / 1000);
-
-// 1 монета каждые 5 секунд
-const idleCoins = Math.floor(secondsPassed / 5);
-
-score += idleCoins;
-
 scoreElement.innerText = score;
-
-localStorage.setItem("score", score);
-localStorage.setItem("last_time", now);
-
-// пассивный доход каждые 5 секунд
-setInterval(() => {
-score++;
-scoreElement.innerText = score;
-
-localStorage.setItem("score", score);
-localStorage.setItem("last_time", Date.now());
-}, 5000);
 
 function tap(){
 score++;
 scoreElement.innerText = score;
-
 localStorage.setItem("score", score);
-localStorage.setItem("last_time", Date.now());
 
 const plus = document.createElement("div");
 plus.innerText = "+1";
