@@ -177,7 +177,8 @@ color:white;
 background:#3d3d3d;
 }
 
-#offlineBox{
+#offlineBox,
+#refReward{
 position:fixed;
 inset:0;
 background:rgba(0,0,0,0.55);
@@ -189,7 +190,8 @@ padding:20px;
 box-sizing:border-box;
 }
 
-#offlineCard{
+#offlineCard,
+#refCard{
 width:320px;
 max-width:100%;
 background:#1f2230;
@@ -199,7 +201,8 @@ text-align:center;
 box-shadow:0 10px 40px rgba(0,0,0,0.55);
 }
 
-#offlineCoins{
+#offlineCoins,
+#refCoinsBox{
 font-size:58px;
 font-weight:bold;
 display:flex;
@@ -209,14 +212,16 @@ gap:10px;
 margin-bottom:18px;
 }
 
-#offlineText{
+#offlineText,
+#refText{
 font-size:22px;
 font-weight:bold;
 line-height:1.3;
 margin-bottom:22px;
 }
 
-#claimBtn{
+#claimBtn,
+#claimReferralBtn{
 width:100%;
 padding:18px;
 font-size:22px;
@@ -237,33 +242,6 @@ text-align:left;
 border:1px solid rgba(255,255,255,0.08);
 font-size:20px;
 line-height:1.9;
-}
-
-/* окно реферальной награды */
-#refReward{
-display:none;
-position:fixed;
-inset:0;
-background:rgba(0,0,0,0.6);
-align-items:center;
-justify-content:center;
-z-index:50;
-padding:20px;
-box-sizing:border-box;
-}
-
-#refCard{
-background:#1f2230;
-padding:25px;
-border-radius:20px;
-text-align:center;
-width:320px;
-max-width:100%;
-}
-
-#refCoins{
-font-size:40px;
-font-weight:bold;
 }
 </style>
 </head>
@@ -322,12 +300,16 @@ onclick="tap()"
 
 <div id="refReward">
   <div id="refCard">
-    <h2>👥 Вы пригласили друга!</h2>
-    <div style="font-size:40px">🪙 <span id="refCoins">1000</span></div>
-    <button onclick="takeReward()">Забрать</button>
+    <div id="refCoinsBox">🪙 <span id="refCoins">1000</span></div>
+    <div id="refText">
+      Игрок перешёл по твоей ссылке<br><br>
+      Вот твоя награда
+    </div>
+    <button id="claimReferralBtn" onclick="takeReward()">Спасибо, Artemwe 🤍</button>
   </div>
 </div>
 
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 document.addEventListener('dblclick', function(e){
 e.preventDefault();
@@ -448,9 +430,19 @@ return (value / 1000).toFixed(2).replace(".", ",") + "K";
 return value;
 }
 
-/* РЕФЕРАЛКА */
+/* реферальная награда */
 const tg = window.Telegram && window.Telegram.WebApp;
-const userId = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : null;
+
+if (tg) {
+tg.ready();
+}
+
+const userId =
+tg &&
+tg.initDataUnsafe &&
+tg.initDataUnsafe.user
+? String(tg.initDataUnsafe.user.id)
+: null;
 
 async function checkReward(){
 if(!userId) return;
@@ -460,7 +452,7 @@ let res = await fetch("/reward/" + userId);
 let data = await res.json();
 
 if(data.reward > 0){
-document.getElementById("refCoins").innerText = data.reward;
+document.getElementById("refCoins").innerText = formatCoins(data.reward);
 document.getElementById("refReward").style.display = "flex";
 }
 }catch(e){}
