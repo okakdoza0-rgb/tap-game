@@ -371,4 +371,49 @@ bought = true;
 
 localStorage.setItem("score", score);
 localStorage.setItem("clickPower", clickPower);
-localStorage.setItem("up
+localStorage.setItem("upgradeBought", "true");
+
+scoreElement.innerText = score;
+task.classList.add("done");
+buyBtn.disabled = true;
+}else{
+alert("Недостаточно монет");
+}
+}
+
+function claimOffline(){
+score += offlineCoins;
+scoreElement.innerText = score;
+
+localStorage.setItem("score", score);
+localStorage.setItem("last_time", Date.now());
+
+offlineCoins = 0;
+offlineBox.style.display = "none";
+}
+
+function openProfile(){
+document.getElementById("profileScreen").style.display = "flex";
+document.getElementById("profileCoins").innerText = formatCoins(score);
+document.getElementById("profileClick").innerText = clickPower;
+document.getElementById("profileIncome").innerText = clickPower;
+document.getElementById("profileUpgrade").innerText = bought ? "Куплено" : "Не куплено";
+}
+
+function closeProfile(){
+document.getElementById("profileScreen").style.display = "none";
+}
+
+function formatCoins(value){
+if (value >= 1000000) {
+return (value / 1000000).toFixed(2).replace(".", ",") + "M";
+}
+if (value >= 1000) {
+return (value / 1000).toFixed(2).replace(".", ",") + "K";
+}
+return value;
+}
+</script>
+
+</body>
+</html>
