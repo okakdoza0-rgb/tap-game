@@ -1,8 +1,15 @@
 const TelegramBot = require('node-telegram-bot-api');
 
-const token = 'TOKEN_БОТА';
+const token = 'ТУТ_ТВОЙ_ТОКЕН_БОТА';
 const bot = new TelegramBot(token, { polling: true });
 
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "👆 Тапай Artemwe\n🪙 Зарабатывай монеты\n⚡ Улучшай силу");
+  bot.sendMessage(msg.chat.id,
+`🎮 Artemwe Tap
+
+👆 Тапай и зарабатывай монеты
+🪙 Копи баланс
+⚡ Улучшай силу
+🏆 Стань лучшим игроком`
+);
 });
