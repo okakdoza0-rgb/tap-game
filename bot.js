@@ -16,21 +16,9 @@ bot.onText(/\/start/, (msg) => {
 ⚡ Прокачивай силу клика  
 🏆 Стань лучшим игроком  
 
-🚀 Нажми «Играть» и начинай тапать!`,
+🚀 Начни играть прямо сейчас!`,
 {
-parse_mode: "Markdown",
-reply_markup: {
-inline_keyboard: [
-[
-{
-text: "🎮 Играть",
-web_app: {
-url: "https://tap-game-oxjs.onrender.com"
-}
-}
-]
-]
-}
+parse_mode: "Markdown"
 }
 );
 
