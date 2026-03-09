@@ -1,130 +1,134 @@
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
-const fs = require('fs');
 
 const token = process.env.BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
 const app = express();
+
 app.use(express.json());
 
-let referrals = {};
+/*
+Храним пользователей
+id -> true
+*/
+const users = {};
 
-function loadReferrals(){
-  try{
-    referrals = JSON.parse(fs.readFileSync('./referrals.json'));
-  }catch{
-    referrals = {};
-  }
-}
+/*
+Реферальные награды
+*/
+const rewards = {};
 
-function saveReferrals(){
-  fs.writeFileSync('./referrals.json', JSON.stringify(referrals,null,2));
-}
-
-loadReferrals();
-
-// START + рефералка
+/* /start */
 bot.onText(/\/start(?: (.+))?/, (msg, match) => {
 
-const userId = String(msg.from.id);
-const username = msg.from.username
-? "@"+msg.from.username
-: msg.from.first_name;
+const chatId = msg.chat.id;
+const username = msg.from.username || msg.from.first_name;
 
-const refId = match[1];
+const referrer = match[1];
 
-if(refId && refId !== userId){
+/*
+Проверяем новый ли игрок
+*/
+const isNewUser = !users[chatId];
 
-if(!referrals[refId]){
-referrals[refId] = {reward:0, users:[]};
+if (isNewUser) {
+
+users[chatId] = true;
+
+/*
+Если есть реферал
+*/
+if (referrer && referrer != chatId) {
+
+if (!rewards[referrer]) {
+rewards[referrer] = 0;
 }
 
-if(!referrals[refId].users.includes(userId)){
+rewards[referrer] += 1000;
 
-referrals[refId].users.push(userId);
-referrals[refId].reward += 1000;
+/*
+Сообщение пригласившему
+*/
+bot.sendMessage(referrer,
+`🎉 Новый игрок перешёл по твоей ссылке!
 
-saveReferrals();
+Игрок: @${username}
 
-bot.sendMessage(
-refId,
-`👥 Новый игрок перешёл по твоей ссылке!
-
-Игрок: ${username}
-
-🎉 Ты получил 1000 🪙`
+🪙 Ты получил 1000`
 );
 
 }
 
 }
 
-bot.sendMessage(
-msg.chat.id,
+bot.sendMessage(chatId,
 `🎮 Добро пожаловать в *ArTap!*
 
-👆 Тапай по Artemwe
-🪙 Зарабатывай монеты
-⚡ Прокачивай силу клика
-🏆 Стань лучшим игроком
+👆 Тапай по Artemwe  
+🪙 Зарабатывай монеты  
+⚡ Прокачивай силу клика  
+🏆 Стань лучшим игроком  
 
 🚀 Начни играть прямо сейчас!`,
-{parse_mode:"Markdown"}
-);
+{ parse_mode: "Markdown" });
 
 });
 
-// INVITE
+
+/* команда пригласить */
 bot.onText(/\/invite/, (msg) => {
 
-const userId = msg.from.id;
+const chatId = msg.chat.id;
 
-bot.sendMessage(
-msg.chat.id,
+const link = `https://t.me/ArTapclicker_bot?start=${chatId}`;
+
+bot.sendMessage(chatId,
 `👥 Пригласи друзей
 
 Твоя ссылка:
-https://t.me/ArTapclicker_bot?start=${userId}
+
+${link}
 
 За каждого друга +1000 🪙`
 );
 
 });
 
-// проверить награду
-app.get("/reward/:id",(req,res)=>{
+
+/* API для игры */
+app.get('/reward/:id', (req, res) => {
 
 const id = req.params.id;
 
-if(referrals[id]){
-res.json({reward:referrals[id].reward});
-}else{
-res.json({reward:0});
-}
+const reward = rewards[id] || 0;
+
+res.json({
+reward
+});
 
 });
 
-// забрать награду
-app.post("/claim",(req,res)=>{
+
+/* забрать награду */
+app.post('/claim', (req, res) => {
 
 const id = req.body.id;
 
-if(referrals[id]){
-let reward = referrals[id].reward;
-referrals[id].reward = 0;
-saveReferrals();
+const reward = rewards[id] || 0;
 
-res.json({reward});
-}else{
-res.json({reward:0});
-}
+rewards[id] = 0;
+
+res.json({
+reward
+});
 
 });
 
-// сервер
+
+/* сервер */
 app.get('/', (req, res) => {
-res.send('Bot is running');
+res.send('Bot running');
 });
 
 const PORT = process.env.PORT || 3000;
