@@ -264,12 +264,11 @@ top:0;
 left:0;
 width:100%;
 height:100%;
-background:rgba(0,0,0,0.95);
+background:white;
 display:none;
 flex-direction:column;
 align-items:center;
-justify-content:center;
-color:white;
+color:black;
 z-index:20;
 padding:20px;
 box-sizing:border-box;
@@ -281,9 +280,10 @@ top:20px;
 left:20px;
 font-size:22px;
 cursor:pointer;
-background:rgba(255,255,255,0.08);
+background:#f3f3f3;
 padding:14px 18px;
 border-radius:18px;
+color:black;
 }
 
 #offlineBox{
@@ -337,15 +337,16 @@ color:white;
 }
 
 .profileCard{
-background:rgba(25,25,35,0.92);
+background:#f7f7f7;
 padding:24px;
 border-radius:20px;
 width:290px;
 max-width:90%;
 text-align:left;
-border:1px solid rgba(255,255,255,0.08);
+border:1px solid #e5e5e5;
 font-size:20px;
 line-height:1.9;
+color:black;
 }
 </style>
 </head>
@@ -408,46 +409,26 @@ line-height:1.9;
       <button id="buyBtnSpeed" class="buyBtnWhite" onclick="buySpeedUpgrade()">Купить</button>
       <div class="redLine"></div>
     </div>
+
+    <div id="taskEnergy" class="whiteCard">
+      <div class="whiteCardTitle">🔋 +500 энергии</div>
+      <div class="whiteCardText">Увеличивает максимум энергии на 500</div>
+      <div class="whiteCardPrice">Цена: 6500 🪙</div>
+      <button id="buyBtnEnergy" class="buyBtnWhite" onclick="buyEnergyUpgrade()">Купить</button>
+      <div class="redLine"></div>
+    </div>
   </div>
 </div>
 
-<div id="profileScreen" style="
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:white;
-display:none;
-flex-direction:column;
-align-items:center;
-color:black;
-z-index:20;
-padding:20px;
-box-sizing:border-box;
-">
+<div id="profileScreen">
 
-<div id="profileBack" onclick="closeProfile()" style="
-position:absolute;
-top:20px;
-left:20px;
-font-size:22px;
-cursor:pointer;
-background:#f3f3f3;
-padding:14px 18px;
-border-radius:18px;
-color:black;
-">
+<div id="profileBack" onclick="closeProfile()">
 ← Назад
 </div>
 
 <h2 style="margin-top:60px;color:black;">Профиль</h2>
 
-<div class="profileCard" style="
-background:#f7f7f7;
-color:black;
-border:1px solid #e5e5e5;
-">
+<div class="profileCard">
 <div>🪙 Монеты: <span id="profileCoins">0</span></div>
 <div>⚡ Сила клика: <span id="profileClick">1</span></div>
 <div>⚡ Энергия: <span id="profileEnergy">500</span>/<span id="profileMaxEnergy">500</span></div>
@@ -475,9 +456,11 @@ let boughtClick = localStorage.getItem("upgradeBought") === "true";
 let boughtSpeed = localStorage.getItem("speedUpgradeBought") === "true";
 let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
 
-let maxEnergy = 500;
+let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
 let energy = Number(localStorage.getItem("energy"));
 if (isNaN(energy)) energy = maxEnergy;
+
+let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0;
 
 let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
 let offlineCoins = 0;
@@ -490,8 +473,10 @@ const maxEnergyElement = document.getElementById("maxEnergyNumber");
 const tapWrap = document.getElementById("tap-wrap");
 const taskClick = document.getElementById("taskClick");
 const taskSpeed = document.getElementById("taskSpeed");
+const taskEnergy = document.getElementById("taskEnergy");
 const buyBtnClick = document.getElementById("buyBtnClick");
 const buyBtnSpeed = document.getElementById("buyBtnSpeed");
+const buyBtnEnergy = document.getElementById("buyBtnEnergy");
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 
@@ -501,6 +486,7 @@ function saveGame(){
   localStorage.setItem("incomeSeconds", incomeSeconds);
   localStorage.setItem("energy", energy);
   localStorage.setItem("maxEnergy", maxEnergy);
+  localStorage.setItem("energyUpgradeCount", energyUpgradeCount);
   localStorage.setItem("upgradeBought", boughtClick ? "true" : "false");
   localStorage.setItem("speedUpgradeBought", boughtSpeed ? "true" : "false");
   localStorage.setItem("last_time", Date.now());
@@ -520,6 +506,11 @@ if(boughtClick){
 if(boughtSpeed){
   taskSpeed.classList.add("done");
   buyBtnSpeed.disabled = true;
+}
+
+if(energyUpgradeCount >= 3){
+  taskEnergy.classList.add("done");
+  buyBtnEnergy.disabled = true;
 }
 
 const now = Date.now();
@@ -645,6 +636,32 @@ function buySpeedUpgrade(){
     updateUI();
     saveGame();
     startIncomeLoop();
+  }else{
+    alert("Недостаточно монет");
+  }
+}
+
+function buyEnergyUpgrade(){
+  if(energyUpgradeCount >= 3) return;
+
+  if(score >= 6500){
+    score -= 6500;
+    maxEnergy += 500;
+    energy += 500;
+
+    if(energy > maxEnergy){
+      energy = maxEnergy;
+    }
+
+    energyUpgradeCount += 1;
+
+    if(energyUpgradeCount >= 3){
+      taskEnergy.classList.add("done");
+      buyBtnEnergy.disabled = true;
+    }
+
+    updateUI();
+    saveGame();
   }else{
     alert("Недостаточно монет");
   }
