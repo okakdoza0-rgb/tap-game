@@ -432,6 +432,14 @@ color:black;
       <button id="buyBtnEnergy" class="buyBtnWhite" onclick="buyEnergyUpgrade()">Купить</button>
       <div class="redLine"></div>
     </div>
+
+    <div id="taskFastEnergy" class="whiteCard">
+      <div class="whiteCardTitle">⚡ Быстрая энергия</div>
+      <div class="whiteCardText">Энергия восстанавливается быстрее</div>
+      <div class="whiteCardPrice">Цена: 7000 🪙</div>
+      <button id="buyBtnFastEnergy" class="buyBtnWhite" onclick="buyFastEnergy()">Купить</button>
+      <div class="redLine"></div>
+    </div>
   </div>
 </div>
 
@@ -448,6 +456,7 @@ color:black;
 <div>⚡ Сила клика: <span id="profileClick">1</span></div>
 <div>⚡ Энергия: <span id="profileEnergy">500</span>/<span id="profileMaxEnergy">500</span></div>
 <div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
+<div>⚡ Реген энергии: <span id="profileEnergyRegen">3</span> сек</div>
 </div>
 
 </div>
@@ -471,6 +480,9 @@ let boughtClick = localStorage.getItem("upgradeBought") === "true";
 let boughtSpeed = localStorage.getItem("speedUpgradeBought") === "true";
 let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
 
+let fastEnergy = localStorage.getItem("fastEnergy") === "true";
+let energyDelay = fastEnergy ? 2000 : 3000;
+
 let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
 let energy = Number(localStorage.getItem("energy"));
 if (isNaN(energy)) energy = maxEnergy;
@@ -493,12 +505,14 @@ const tapWrap = document.getElementById("tap-wrap");
 const taskClick = document.getElementById("taskClick");
 const taskSpeed = document.getElementById("taskSpeed");
 const taskEnergy = document.getElementById("taskEnergy");
+const taskFastEnergy = document.getElementById("taskFastEnergy");
 const task10k = document.getElementById("task10k");
 const taskBuy1Upgrade = document.getElementById("taskBuy1Upgrade");
 const taskEmptyEnergy = document.getElementById("taskEmptyEnergy");
 const buyBtnClick = document.getElementById("buyBtnClick");
 const buyBtnSpeed = document.getElementById("buyBtnSpeed");
 const buyBtnEnergy = document.getElementById("buyBtnEnergy");
+const buyBtnFastEnergy = document.getElementById("buyBtnFastEnergy");
 const claimTask10kBtn = document.getElementById("claimTask10k");
 const claimTaskBuy1UpgradeBtn = document.getElementById("claimTaskBuy1Upgrade");
 const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
@@ -506,7 +520,7 @@ const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 
 function hasAnyUpgradeBought(){
-  return boughtClick || boughtSpeed || energyUpgradeCount > 0;
+  return boughtClick || boughtSpeed || energyUpgradeCount > 0 || fastEnergy;
 }
 
 function saveGame(){
@@ -520,6 +534,7 @@ function saveGame(){
   localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone ? "true" : "false");
   localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone ? "true" : "false");
   localStorage.setItem("energyWasZero", energyWasZero ? "true" : "false");
+  localStorage.setItem("fastEnergy", fastEnergy ? "true" : "false");
   localStorage.setItem("upgradeBought", boughtClick ? "true" : "false");
   localStorage.setItem("speedUpgradeBought", boughtSpeed ? "true" : "false");
   localStorage.setItem("last_time", Date.now());
@@ -564,6 +579,11 @@ if(energyUpgradeCount >= 3){
   buyBtnEnergy.disabled = true;
 }
 
+if(fastEnergy){
+  taskFastEnergy.classList.add("done");
+  buyBtnFastEnergy.disabled = true;
+}
+
 if(task10kDone){
   task10k.classList.add("done");
   claimTask10kBtn.disabled = true;
@@ -584,7 +604,7 @@ const secondsPassed = Math.floor((now - lastTime) / 1000);
 
 offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
 
-const restoredEnergy = Math.floor(secondsPassed / 3);
+const restoredEnergy = Math.floor((now - lastTime) / energyDelay);
 energy = Math.min(maxEnergy, energy + restoredEnergy);
 
 if(offlineCoins > 0){
@@ -618,7 +638,7 @@ function startEnergyLoop(){
       updateUI();
       saveGame();
     }
-  }, 3000);
+  }, energyDelay);
 }
 
 startIncomeLoop();
@@ -737,6 +757,25 @@ function buyEnergyUpgrade(){
   }
 }
 
+function buyFastEnergy(){
+  if(fastEnergy) return;
+
+  if(score >= 7000){
+    score -= 7000;
+    fastEnergy = true;
+    energyDelay = 2000;
+
+    taskFastEnergy.classList.add("done");
+    buyBtnFastEnergy.disabled = true;
+
+    updateUI();
+    saveGame();
+    startEnergyLoop();
+  }else{
+    alert("Недостаточно монет");
+  }
+}
+
 function claimTask10k(){
   if(task10kDone) return;
   if(score < 10000) return;
@@ -797,6 +836,7 @@ function openProfile(){
   document.getElementById("profileMaxEnergy").innerText = maxEnergy;
   document.getElementById("profileIncome").innerText = clickPower;
   document.getElementById("profileSeconds").innerText = incomeSeconds;
+  document.getElementById("profileEnergyRegen").innerText = fastEnergy ? "2" : "3";
 }
 
 function closeProfile(){
