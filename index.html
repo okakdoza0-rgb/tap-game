@@ -46,10 +46,6 @@ font-weight:bold;
 display:flex;
 align-items:center;
 gap:10px;
-padding:10px 18px;
-border-radius:18px;
-background:rgba(0,0,0,0.28);
-border:1px solid rgba(255,255,255,0.10);
 z-index:2;
 }
 
@@ -78,30 +74,6 @@ top:20px;
 transform:translateX(-50%);
 color:white;
 font-size:32px;
-font-weight:bold;
-pointer-events:none;
-animation:floatUp 0.8s ease-out forwards;
-}
-
-.minusEnergy{
-position:absolute;
-left:50%;
-top:65px;
-transform:translateX(-50%);
-color:#71d4ff;
-font-size:24px;
-font-weight:bold;
-pointer-events:none;
-animation:floatUp 0.8s ease-out forwards;
-}
-
-.noEnergy{
-position:absolute;
-left:50%;
-top:40px;
-transform:translateX(-50%);
-color:#ff6b6b;
-font-size:24px;
 font-weight:bold;
 pointer-events:none;
 animation:floatUp 0.8s ease-out forwards;
@@ -419,14 +391,11 @@ if(boughtSpeed){
   buyBtnSpeed.disabled = true;
 }
 
-/* оффлайн расчет */
 const now = Date.now();
 const secondsPassed = Math.floor((now - lastTime) / 1000);
 
-/* оффлайн монеты */
 offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
 
-/* оффлайн энергия: +1 каждые 3 сек */
 const restoredEnergy = Math.floor(secondsPassed / 3);
 energy = Math.min(maxEnergy, energy + restoredEnergy);
 
@@ -471,14 +440,6 @@ function tap(){
   let energyCost = clickPower;
 
   if(energy < energyCost){
-    const noEnergy = document.createElement("div");
-    noEnergy.innerText = "Нет энергии";
-    noEnergy.className = "noEnergy";
-    tapWrap.appendChild(noEnergy);
-
-    setTimeout(() => {
-      noEnergy.remove();
-    }, 800);
     return;
   }
 
@@ -493,17 +454,8 @@ function tap(){
   plus.className = "plus";
   tapWrap.appendChild(plus);
 
-  const minus = document.createElement("div");
-  minus.innerText = "-" + energyCost + "⚡";
-  minus.className = "minusEnergy";
-  tapWrap.appendChild(minus);
-
   setTimeout(() => {
     plus.remove();
-  }, 800);
-
-  setTimeout(() => {
-    minus.remove();
   }, 800);
 }
 
