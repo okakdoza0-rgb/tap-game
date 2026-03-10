@@ -404,6 +404,14 @@ color:black;
       <button id="claimTaskEmptyEnergy" class="buyBtnWhite" onclick="claimTaskEmptyEnergy()" disabled>Выполнить</button>
       <div class="redLine"></div>
     </div>
+
+    <div id="task2000Energy" class="whiteCard">
+      <div class="whiteCardTitle">🔋 Дойди до 2000 энергии</div>
+      <div class="whiteCardText">Сделай максимум энергии 2000</div>
+      <div class="whiteCardText">Награда: 2500 🪙</div>
+      <button id="claimTask2000Energy" class="buyBtnWhite" onclick="claimTask2000Energy()" disabled>Выполнить</button>
+      <div class="redLine"></div>
+    </div>
   </div>
 
   <div id="upgradesContent">
@@ -491,6 +499,7 @@ let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0
 let task10kDone = localStorage.getItem("task10kDone") === "true";
 let taskBuy1UpgradeDone = localStorage.getItem("taskBuy1UpgradeDone") === "true";
 let taskEmptyEnergyDone = localStorage.getItem("taskEmptyEnergyDone") === "true";
+let task2000EnergyDone = localStorage.getItem("task2000EnergyDone") === "true";
 let energyWasZero = localStorage.getItem("energyWasZero") === "true";
 
 let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
@@ -509,6 +518,7 @@ const taskFastEnergy = document.getElementById("taskFastEnergy");
 const task10k = document.getElementById("task10k");
 const taskBuy1Upgrade = document.getElementById("taskBuy1Upgrade");
 const taskEmptyEnergy = document.getElementById("taskEmptyEnergy");
+const task2000Energy = document.getElementById("task2000Energy");
 const buyBtnClick = document.getElementById("buyBtnClick");
 const buyBtnSpeed = document.getElementById("buyBtnSpeed");
 const buyBtnEnergy = document.getElementById("buyBtnEnergy");
@@ -516,6 +526,7 @@ const buyBtnFastEnergy = document.getElementById("buyBtnFastEnergy");
 const claimTask10kBtn = document.getElementById("claimTask10k");
 const claimTaskBuy1UpgradeBtn = document.getElementById("claimTaskBuy1Upgrade");
 const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
+const claimTask2000EnergyBtn = document.getElementById("claimTask2000Energy");
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 
@@ -533,6 +544,7 @@ function saveGame(){
   localStorage.setItem("task10kDone", task10kDone ? "true" : "false");
   localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone ? "true" : "false");
   localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone ? "true" : "false");
+  localStorage.setItem("task2000EnergyDone", task2000EnergyDone ? "true" : "false");
   localStorage.setItem("energyWasZero", energyWasZero ? "true" : "false");
   localStorage.setItem("fastEnergy", fastEnergy ? "true" : "false");
   localStorage.setItem("upgradeBought", boughtClick ? "true" : "false");
@@ -561,6 +573,12 @@ function updateUI(){
     claimTaskEmptyEnergyBtn.disabled = false;
   }else{
     claimTaskEmptyEnergyBtn.disabled = true;
+  }
+
+  if(maxEnergy >= 2000 && !task2000EnergyDone){
+    claimTask2000EnergyBtn.disabled = false;
+  }else{
+    claimTask2000EnergyBtn.disabled = true;
   }
 }
 
@@ -597,6 +615,11 @@ if(taskBuy1UpgradeDone){
 if(taskEmptyEnergyDone){
   taskEmptyEnergy.classList.add("done");
   claimTaskEmptyEnergyBtn.disabled = true;
+}
+
+if(task2000EnergyDone){
+  task2000Energy.classList.add("done");
+  claimTask2000EnergyBtn.disabled = true;
 }
 
 const now = Date.now();
@@ -813,6 +836,20 @@ function claimTaskEmptyEnergy(){
 
   taskEmptyEnergy.classList.add("done");
   claimTaskEmptyEnergyBtn.disabled = true;
+
+  updateUI();
+  saveGame();
+}
+
+function claimTask2000Energy(){
+  if(task2000EnergyDone) return;
+  if(maxEnergy < 2000) return;
+
+  score += 2500;
+  task2000EnergyDone = true;
+
+  task2000Energy.classList.add("done");
+  claimTask2000EnergyBtn.disabled = true;
 
   updateUI();
   saveGame();
