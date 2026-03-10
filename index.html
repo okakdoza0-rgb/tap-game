@@ -396,6 +396,14 @@ color:black;
       <button id="claimTaskBuy1Upgrade" class="buyBtnWhite" onclick="claimTaskBuy1Upgrade()" disabled>Выполнить</button>
       <div class="redLine"></div>
     </div>
+
+    <div id="taskEmptyEnergy" class="whiteCard">
+      <div class="whiteCardTitle">⚡ Потрать всю свою энергию</div>
+      <div class="whiteCardText">Опусти энергию до 0</div>
+      <div class="whiteCardText">Награда: 2000 🪙</div>
+      <button id="claimTaskEmptyEnergy" class="buyBtnWhite" onclick="claimTaskEmptyEnergy()" disabled>Выполнить</button>
+      <div class="redLine"></div>
+    </div>
   </div>
 
   <div id="upgradesContent">
@@ -470,6 +478,7 @@ if (isNaN(energy)) energy = maxEnergy;
 let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0;
 let task10kDone = localStorage.getItem("task10kDone") === "true";
 let taskBuy1UpgradeDone = localStorage.getItem("taskBuy1UpgradeDone") === "true";
+let taskEmptyEnergyDone = localStorage.getItem("taskEmptyEnergyDone") === "true";
 
 let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
 let offlineCoins = 0;
@@ -485,11 +494,13 @@ const taskSpeed = document.getElementById("taskSpeed");
 const taskEnergy = document.getElementById("taskEnergy");
 const task10k = document.getElementById("task10k");
 const taskBuy1Upgrade = document.getElementById("taskBuy1Upgrade");
+const taskEmptyEnergy = document.getElementById("taskEmptyEnergy");
 const buyBtnClick = document.getElementById("buyBtnClick");
 const buyBtnSpeed = document.getElementById("buyBtnSpeed");
 const buyBtnEnergy = document.getElementById("buyBtnEnergy");
 const claimTask10kBtn = document.getElementById("claimTask10k");
 const claimTaskBuy1UpgradeBtn = document.getElementById("claimTaskBuy1Upgrade");
+const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 
@@ -506,6 +517,7 @@ function saveGame(){
   localStorage.setItem("energyUpgradeCount", energyUpgradeCount);
   localStorage.setItem("task10kDone", task10kDone ? "true" : "false");
   localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone ? "true" : "false");
+  localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone ? "true" : "false");
   localStorage.setItem("upgradeBought", boughtClick ? "true" : "false");
   localStorage.setItem("speedUpgradeBought", boughtSpeed ? "true" : "false");
   localStorage.setItem("last_time", Date.now());
@@ -526,6 +538,12 @@ function updateUI(){
     claimTaskBuy1UpgradeBtn.disabled = false;
   }else{
     claimTaskBuy1UpgradeBtn.disabled = true;
+  }
+
+  if(energy === 0 && !taskEmptyEnergyDone){
+    claimTaskEmptyEnergyBtn.disabled = false;
+  }else{
+    claimTaskEmptyEnergyBtn.disabled = true;
   }
 }
 
@@ -552,6 +570,11 @@ if(task10kDone){
 if(taskBuy1UpgradeDone){
   taskBuy1Upgrade.classList.add("done");
   claimTaskBuy1UpgradeBtn.disabled = true;
+}
+
+if(taskEmptyEnergyDone){
+  taskEmptyEnergy.classList.add("done");
+  claimTaskEmptyEnergyBtn.disabled = true;
 }
 
 const now = Date.now();
@@ -731,6 +754,20 @@ function claimTaskBuy1Upgrade(){
 
   taskBuy1Upgrade.classList.add("done");
   claimTaskBuy1UpgradeBtn.disabled = true;
+
+  updateUI();
+  saveGame();
+}
+
+function claimTaskEmptyEnergy(){
+  if(taskEmptyEnergyDone) return;
+  if(energy !== 0) return;
+
+  score += 2000;
+  taskEmptyEnergyDone = true;
+
+  taskEmptyEnergy.classList.add("done");
+  claimTaskEmptyEnergyBtn.disabled = true;
 
   updateUI();
   saveGame();
