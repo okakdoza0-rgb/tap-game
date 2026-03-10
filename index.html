@@ -385,9 +385,11 @@ color:black;
   <div id="tasksContent" style="display:none;">
     <div class="screenTitle">Задания</div>
 
-    <div class="whiteCard">
-      <div class="whiteCardTitle">Задания</div>
-      <button class="buyBtnWhite" disabled>Скоро</button>
+    <div id="task10k" class="whiteCard">
+      <div class="whiteCardTitle">💰 Набери 10K монет</div>
+      <div class="whiteCardText">Награда: 500 🪙</div>
+      <button id="claimTask10k" class="buyBtnWhite" onclick="claimTask10k()" disabled>Выполнить</button>
+      <div class="redLine"></div>
     </div>
   </div>
 
@@ -461,6 +463,7 @@ let energy = Number(localStorage.getItem("energy"));
 if (isNaN(energy)) energy = maxEnergy;
 
 let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0;
+let task10kDone = localStorage.getItem("task10kDone") === "true";
 
 let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
 let offlineCoins = 0;
@@ -474,9 +477,11 @@ const tapWrap = document.getElementById("tap-wrap");
 const taskClick = document.getElementById("taskClick");
 const taskSpeed = document.getElementById("taskSpeed");
 const taskEnergy = document.getElementById("taskEnergy");
+const task10k = document.getElementById("task10k");
 const buyBtnClick = document.getElementById("buyBtnClick");
 const buyBtnSpeed = document.getElementById("buyBtnSpeed");
 const buyBtnEnergy = document.getElementById("buyBtnEnergy");
+const claimTask10kBtn = document.getElementById("claimTask10k");
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 
@@ -487,6 +492,7 @@ function saveGame(){
   localStorage.setItem("energy", energy);
   localStorage.setItem("maxEnergy", maxEnergy);
   localStorage.setItem("energyUpgradeCount", energyUpgradeCount);
+  localStorage.setItem("task10kDone", task10kDone ? "true" : "false");
   localStorage.setItem("upgradeBought", boughtClick ? "true" : "false");
   localStorage.setItem("speedUpgradeBought", boughtSpeed ? "true" : "false");
   localStorage.setItem("last_time", Date.now());
@@ -496,6 +502,12 @@ function updateUI(){
   scoreElement.innerText = formatCoins(score);
   energyElement.innerText = energy;
   maxEnergyElement.innerText = maxEnergy;
+
+  if(score >= 10000 && !task10kDone){
+    claimTask10kBtn.disabled = false;
+  }else{
+    claimTask10kBtn.disabled = true;
+  }
 }
 
 if(boughtClick){
@@ -511,6 +523,11 @@ if(boughtSpeed){
 if(energyUpgradeCount >= 3){
   taskEnergy.classList.add("done");
   buyBtnEnergy.disabled = true;
+}
+
+if(task10kDone){
+  task10k.classList.add("done");
+  claimTask10kBtn.disabled = true;
 }
 
 const now = Date.now();
@@ -665,6 +682,20 @@ function buyEnergyUpgrade(){
   }else{
     alert("Недостаточно монет");
   }
+}
+
+function claimTask10k(){
+  if(task10kDone) return;
+  if(score < 10000) return;
+
+  score += 500;
+  task10kDone = true;
+
+  task10k.classList.add("done");
+  claimTask10kBtn.disabled = true;
+
+  updateUI();
+  saveGame();
 }
 
 function claimOffline(){
