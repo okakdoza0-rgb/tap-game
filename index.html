@@ -411,17 +411,49 @@ line-height:1.9;
   </div>
 </div>
 
-<div id="profileScreen">
-  <div id="profileBack" onclick="closeProfile()">← Назад</div>
+<div id="profileScreen" style="
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:white;
+display:none;
+flex-direction:column;
+align-items:center;
+color:black;
+z-index:20;
+padding:20px;
+box-sizing:border-box;
+">
 
-  <h2>👤 Профиль</h2>
+<div id="profileBack" onclick="closeProfile()" style="
+position:absolute;
+top:20px;
+left:20px;
+font-size:22px;
+cursor:pointer;
+background:#f3f3f3;
+padding:14px 18px;
+border-radius:18px;
+color:black;
+">
+← Назад
+</div>
 
-  <div class="profileCard">
-    <div>🪙 Монеты: <span id="profileCoins">0</span></div>
-    <div>⚡ Сила клика: <span id="profileClick">1</span></div>
-    <div>⚡ Энергия: <span id="profileEnergy">500</span>/<span id="profileMaxEnergy">500</span></div>
-    <div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
-  </div>
+<h2 style="margin-top:60px;color:black;">Профиль</h2>
+
+<div class="profileCard" style="
+background:#f7f7f7;
+color:black;
+border:1px solid #e5e5e5;
+">
+<div>🪙 Монеты: <span id="profileCoins">0</span></div>
+<div>⚡ Сила клика: <span id="profileClick">1</span></div>
+<div>⚡ Энергия: <span id="profileEnergy">500</span>/<span id="profileMaxEnergy">500</span></div>
+<div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
+</div>
+
 </div>
 
 <div id="offlineBox">
