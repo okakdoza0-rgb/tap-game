@@ -124,7 +124,140 @@ min-width:150px;
 text-align:center;
 }
 
-#upgradeScreen,
+/* ЭКРАН УЛУЧШЕНИЙ */
+#upgradeScreen{
+position:fixed;
+inset:0;
+background:#ffffff;
+display:none;
+flex-direction:column;
+z-index:50;
+overflow-y:auto;
+-webkit-overflow-scrolling:touch;
+color:#111;
+}
+
+#upgradeTopTabs{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:18px;
+padding:18px 20px;
+border-bottom:1px solid #ececec;
+position:sticky;
+top:0;
+background:#fff;
+z-index:5;
+}
+
+.topTab{
+font-size:18px;
+padding:12px 26px;
+border-radius:999px;
+cursor:pointer;
+color:#222;
+}
+
+.topTab.active{
+background:#eef0f7;
+color:#4c6fbf;
+font-weight:bold;
+}
+
+#upgradesContent,
+#tasksContent{
+width:100%;
+box-sizing:border-box;
+padding:22px 18px 30px;
+}
+
+.screenTitle{
+font-size:30px;
+font-weight:bold;
+text-align:center;
+margin:8px 0 24px;
+}
+
+.whiteCard{
+background:#fff;
+border:1px solid #e8e8e8;
+border-radius:26px;
+padding:22px 20px 18px;
+margin-bottom:18px;
+text-align:center;
+box-shadow:0 1px 0 rgba(0,0,0,0.02);
+}
+
+.whiteCard.done{
+opacity:0.65;
+}
+
+.whiteCardTitle{
+font-size:28px;
+font-weight:bold;
+margin-bottom:14px;
+color:#111;
+}
+
+.whiteCardText{
+font-size:18px;
+color:#222;
+margin-bottom:12px;
+line-height:1.35;
+}
+
+.whiteCardPrice{
+font-size:18px;
+color:#222;
+margin-bottom:16px;
+}
+
+.buyBtnWhite{
+width:100%;
+padding:16px 18px;
+border:none;
+border-radius:18px;
+background:#eef0f5;
+color:#111;
+font-size:18px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.buyBtnWhite:disabled{
+background:#e4e4e4;
+color:#666;
+cursor:default;
+}
+
+.redLine{
+height:4px;
+background:red;
+margin-top:14px;
+display:none;
+border-radius:10px;
+}
+
+.whiteCard.done .redLine{
+display:block;
+}
+
+#upgradeBackBtn{
+position:sticky;
+top:0;
+left:0;
+align-self:flex-start;
+margin:14px 0 0 14px;
+font-size:22px;
+cursor:pointer;
+background:#f3f3f3;
+color:#111;
+padding:12px 16px;
+border-radius:18px;
+z-index:6;
+}
+
+/* ПРОФИЛЬ */
 #profileScreen{
 position:fixed;
 top:0;
@@ -142,7 +275,6 @@ padding:20px;
 box-sizing:border-box;
 }
 
-#back,
 #profileBack{
 position:absolute;
 top:20px;
@@ -152,53 +284,6 @@ cursor:pointer;
 background:rgba(255,255,255,0.08);
 padding:14px 18px;
 border-radius:18px;
-}
-
-.upgradeCard{
-background:rgba(25,25,35,0.92);
-padding:20px;
-border-radius:18px;
-width:280px;
-text-align:center;
-border:1px solid rgba(255,255,255,0.08);
-margin-bottom:16px;
-}
-
-.upgradeCard.done{
-background:rgba(0,0,0,0.75);
-opacity:0.65;
-}
-
-.redLine{
-height:4px;
-background:red;
-margin-top:12px;
-display:none;
-border-radius:10px;
-}
-
-.upgradeCard.done .redLine{
-display:block;
-}
-
-button{
-margin-top:12px;
-padding:12px 16px;
-border:none;
-border-radius:12px;
-cursor:pointer;
-font-size:16px;
-font-weight:bold;
-}
-
-.upgradeCard button{
-width:100%;
-background:#5865f2;
-color:white;
-}
-
-.upgradeCard button:disabled{
-background:#3d3d3d;
 }
 
 #offlineBox{
@@ -289,24 +374,41 @@ line-height:1.9;
 <div id="profileBtn" onclick="openProfile()">👤 Профиль</div>
 
 <div id="upgradeScreen">
-  <div id="back" onclick="closeUpgrades()">← Назад</div>
+  <div id="upgradeBackBtn" onclick="closeUpgrades()">← Назад</div>
 
-  <h2>Улучшения</h2>
-
-  <div id="taskClick" class="upgradeCard">
-    <div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⚡ +1 клик</div>
-    <div style="font-size:18px;">Теперь будет 2 монеты за тап</div>
-    <div style="font-size:18px;margin-top:8px;">Цена: 5000 🪙</div>
-    <button id="buyBtnClick" onclick="buyClickUpgrade()">Купить</button>
-    <div class="redLine"></div>
+  <div id="upgradeTopTabs">
+    <div id="tasksTab" class="topTab" onclick="showTasksTab()">Задания</div>
+    <div id="upgradesTab" class="topTab active" onclick="showUpgradesTab()">Улучшения</div>
   </div>
 
-  <div id="taskSpeed" class="upgradeCard">
-    <div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⏱ Быстрый доход</div>
-    <div style="font-size:18px;">Монеты будут приходить каждые 4 сек</div>
-    <div style="font-size:18px;margin-top:8px;">Цена: 1500 🪙</div>
-    <button id="buyBtnSpeed" onclick="buySpeedUpgrade()">Купить</button>
-    <div class="redLine"></div>
+  <div id="tasksContent" style="display:none;">
+    <div class="screenTitle">Задания</div>
+
+    <div class="whiteCard">
+      <div class="whiteCardTitle">Задания</div>
+      <div class="whiteCardText">Тут ты потом добавишь свои задания</div>
+      <button class="buyBtnWhite" disabled>Скоро</button>
+    </div>
+  </div>
+
+  <div id="upgradesContent">
+    <div class="screenTitle">Улучшения</div>
+
+    <div id="taskClick" class="whiteCard">
+      <div class="whiteCardTitle">⚡ +1 клик</div>
+      <div class="whiteCardText">Теперь будет 2 монеты за тап</div>
+      <div class="whiteCardPrice">Цена: 5000 🪙</div>
+      <button id="buyBtnClick" class="buyBtnWhite" onclick="buyClickUpgrade()">Купить</button>
+      <div class="redLine"></div>
+    </div>
+
+    <div id="taskSpeed" class="whiteCard">
+      <div class="whiteCardTitle">⏱ Быстрый доход</div>
+      <div class="whiteCardText">Монеты будут приходить каждые 4 сек</div>
+      <div class="whiteCardPrice">Цена: 1500 🪙</div>
+      <button id="buyBtnSpeed" class="buyBtnWhite" onclick="buySpeedUpgrade()">Купить</button>
+      <div class="redLine"></div>
+    </div>
   </div>
 </div>
 
@@ -459,10 +561,25 @@ function tap(){
 
 function openUpgrades(){
   document.getElementById("upgradeScreen").style.display = "flex";
+  showUpgradesTab();
 }
 
 function closeUpgrades(){
   document.getElementById("upgradeScreen").style.display = "none";
+}
+
+function showTasksTab(){
+  document.getElementById("tasksContent").style.display = "block";
+  document.getElementById("upgradesContent").style.display = "none";
+  document.getElementById("tasksTab").classList.add("active");
+  document.getElementById("upgradesTab").classList.remove("active");
+}
+
+function showUpgradesTab(){
+  document.getElementById("tasksContent").style.display = "none";
+  document.getElementById("upgradesContent").style.display = "block";
+  document.getElementById("tasksTab").classList.remove("active");
+  document.getElementById("upgradesTab").classList.add("active");
 }
 
 function buyClickUpgrade(){
@@ -520,8 +637,6 @@ function openProfile(){
   document.getElementById("profileMaxEnergy").innerText = maxEnergy;
   document.getElementById("profileIncome").innerText = clickPower;
   document.getElementById("profileSeconds").innerText = incomeSeconds;
-  document.getElementById("profileUpgradeClick").innerText = boughtClick ? "Куплено" : "Не куплено";
-  document.getElementById("profileUpgradeSpeed").innerText = boughtSpeed ? "Куплено" : "Не куплено";
 }
 
 function closeProfile(){
