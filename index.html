@@ -117,6 +117,8 @@ align-items:center;
 justify-content:center;
 color:white;
 z-index:20;
+padding:20px;
+box-sizing:border-box;
 }
 
 #back,
@@ -131,16 +133,17 @@ padding:14px 18px;
 border-radius:18px;
 }
 
-#task{
+.upgradeCard{
 background:rgba(25,25,35,0.92);
 padding:20px;
 border-radius:18px;
 width:280px;
 text-align:center;
 border:1px solid rgba(255,255,255,0.08);
+margin-bottom:16px;
 }
 
-#task.done{
+.upgradeCard.done{
 background:rgba(0,0,0,0.75);
 opacity:0.65;
 }
@@ -153,7 +156,7 @@ display:none;
 border-radius:10px;
 }
 
-#task.done .redLine{
+.upgradeCard.done .redLine{
 display:block;
 }
 
@@ -167,17 +170,16 @@ font-size:16px;
 font-weight:bold;
 }
 
-#task button{
+.upgradeCard button{
 width:100%;
 background:#5865f2;
 color:white;
 }
 
-#task button:disabled{
+.upgradeCard button:disabled{
 background:#3d3d3d;
 }
 
-/* окно оффлайн дохода */
 #offlineBox{
 position:fixed;
 inset:0;
@@ -264,11 +266,19 @@ onclick="tap()"
 
 <h2>Улучшения</h2>
 
-<div id="task">
+<div id="taskClick" class="upgradeCard">
 <div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⚡ +1 клик</div>
 <div style="font-size:18px;">Теперь будет 2 монеты за тап</div>
 <div style="font-size:18px;margin-top:8px;">Цена: 5000 🪙</div>
-<button id="buyBtn" onclick="buyUpgrade()">Купить</button>
+<button id="buyBtnClick" onclick="buyClickUpgrade()">Купить</button>
+<div class="redLine"></div>
+</div>
+
+<div id="taskSpeed" class="upgradeCard">
+<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⏱ Быстрый доход</div>
+<div style="font-size:18px;">Монеты будут приходить каждые 4 сек</div>
+<div style="font-size:18px;margin-top:8px;">Цена: 1500 🪙</div>
+<button id="buyBtnSpeed" onclick="buySpeedUpgrade()">Купить</button>
 <div class="redLine"></div>
 </div>
 </div>
@@ -281,8 +291,9 @@ onclick="tap()"
 <div class="profileCard">
 <div>🪙 Монеты: <span id="profileCoins">0</span></div>
 <div>⚡ Сила клика: <span id="profileClick">1</span></div>
-<div>⏱ Доход: <span id="profileIncome">1</span> / 5 сек</div>
-<div>🛒 Улучшение: <span id="profileUpgrade">Не куплено</span></div>
+<div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
+<div>🛒 +1 клик: <span id="profileUpgradeClick">Не куплено</span></div>
+<div>🛒 Быстрый доход: <span id="profileUpgradeSpeed">Не куплено</span></div>
 </div>
 </div>
 
@@ -301,41 +312,58 @@ e.preventDefault();
 
 let score = Number(localStorage.getItem("score")) || 0;
 let clickPower = Number(localStorage.getItem("clickPower")) || 1;
-let bought = localStorage.getItem("upgradeBought") === "true";
+let boughtClick = localStorage.getItem("upgradeBought") === "true";
+let boughtSpeed = localStorage.getItem("speedUpgradeBought") === "true";
+let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
 let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
 let offlineCoins = 0;
+let incomeInterval = null;
 
 const scoreElement = document.getElementById("scoreNumber");
 const tapWrap = document.getElementById("tap-wrap");
-const task = document.getElementById("task");
-const buyBtn = document.getElementById("buyBtn");
+const taskClick = document.getElementById("taskClick");
+const taskSpeed = document.getElementById("taskSpeed");
+const buyBtnClick = document.getElementById("buyBtnClick");
+const buyBtnSpeed = document.getElementById("buyBtnSpeed");
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 
 scoreElement.innerText = score;
 
-if(bought){
-task.classList.add("done");
-buyBtn.disabled = true;
+if(boughtClick){
+taskClick.classList.add("done");
+buyBtnClick.disabled = true;
+}
+
+if(boughtSpeed){
+taskSpeed.classList.add("done");
+buyBtnSpeed.disabled = true;
 }
 
 // оффлайн доход
 const now = Date.now();
 const secondsPassed = Math.floor((now - lastTime) / 1000);
-offlineCoins = Math.floor(secondsPassed / 5) * clickPower;
+offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
 
 if(offlineCoins > 0){
 offlineAmount.innerText = formatCoins(offlineCoins);
 offlineBox.style.display = "flex";
 }
 
-// онлайн доход каждые 5 секунд
-setInterval(() => {
+function startIncomeLoop(){
+if(incomeInterval){
+clearInterval(incomeInterval);
+}
+
+incomeInterval = setInterval(() => {
 score += clickPower;
 scoreElement.innerText = score;
 localStorage.setItem("score", score);
 localStorage.setItem("last_time", Date.now());
-}, 5000);
+}, incomeSeconds * 1000);
+}
+
+startIncomeLoop();
 
 function tap(){
 score += clickPower;
@@ -361,21 +389,43 @@ function closeUpgrades(){
 document.getElementById("upgradeScreen").style.display = "none";
 }
 
-function buyUpgrade(){
-if(bought) return;
+function buyClickUpgrade(){
+if(boughtClick) return;
 
 if(score >= 5000){
 score -= 5000;
 clickPower = 2;
-bought = true;
+boughtClick = true;
 
 localStorage.setItem("score", score);
 localStorage.setItem("clickPower", clickPower);
 localStorage.setItem("upgradeBought", "true");
 
 scoreElement.innerText = score;
-task.classList.add("done");
-buyBtn.disabled = true;
+taskClick.classList.add("done");
+buyBtnClick.disabled = true;
+}else{
+alert("Недостаточно монет");
+}
+}
+
+function buySpeedUpgrade(){
+if(boughtSpeed) return;
+
+if(score >= 1500){
+score -= 1500;
+incomeSeconds = 4;
+boughtSpeed = true;
+
+localStorage.setItem("score", score);
+localStorage.setItem("incomeSeconds", incomeSeconds);
+localStorage.setItem("speedUpgradeBought", "true");
+
+scoreElement.innerText = score;
+taskSpeed.classList.add("done");
+buyBtnSpeed.disabled = true;
+
+startIncomeLoop();
 }else{
 alert("Недостаточно монет");
 }
@@ -397,7 +447,9 @@ document.getElementById("profileScreen").style.display = "flex";
 document.getElementById("profileCoins").innerText = formatCoins(score);
 document.getElementById("profileClick").innerText = clickPower;
 document.getElementById("profileIncome").innerText = clickPower;
-document.getElementById("profileUpgrade").innerText = bought ? "Куплено" : "Не куплено";
+document.getElementById("profileSeconds").innerText = incomeSeconds;
+document.getElementById("profileUpgradeClick").innerText = boughtClick ? "Куплено" : "Не куплено";
+document.getElementById("profileUpgradeSpeed").innerText = boughtSpeed ? "Куплено" : "Не куплено";
 }
 
 function closeProfile(){
