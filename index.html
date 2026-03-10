@@ -2,13 +2,16 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <title>Artemwe Tap</title>
 
 <style>
+
 body{
 margin:0;
-background:url("1F67980F-7FC8-460D-B978-4E22B48E7767.png") center/cover no-repeat;
+background:black;
 height:100vh;
 display:flex;
 justify-content:center;
@@ -18,7 +21,6 @@ font-family:Arial;
 overflow:hidden;
 position:relative;
 touch-action:manipulation;
-color:white;
 }
 
 #score{
@@ -29,13 +31,11 @@ font-weight:bold;
 display:flex;
 align-items:center;
 gap:10px;
-z-index:2;
 }
 
 #tap-wrap{
 position:relative;
 display:inline-block;
-z-index:2;
 }
 
 #tap{
@@ -73,174 +73,28 @@ transform:translateX(-50%) translateY(-80px);
 }
 }
 
-#upgradeBtn{
+/* ЭНЕРГИЯ */
+
+#energyBox{
 position:fixed;
 bottom:30px;
 left:20px;
-background:rgba(20,20,30,0.8);
-color:white;
-padding:14px 18px;
-border-radius:18px;
-cursor:pointer;
-font-size:18px;
-font-weight:bold;
-border:1px solid rgba(255,255,255,0.12);
-z-index:5;
-}
-
-#profileBtn{
-position:fixed;
-bottom:30px;
-right:20px;
-background:rgba(20,20,30,0.8);
-color:white;
-padding:14px 18px;
-border-radius:18px;
-cursor:pointer;
-font-size:18px;
-font-weight:bold;
-border:1px solid rgba(255,255,255,0.12);
-z-index:5;
-}
-
-#upgradeScreen,
-#profileScreen{
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:rgba(0,0,0,0.95);
-display:none;
-flex-direction:column;
-align-items:center;
-justify-content:center;
-color:white;
-z-index:20;
-padding:20px;
-box-sizing:border-box;
-}
-
-#back,
-#profileBack{
-position:absolute;
-top:20px;
-left:20px;
-font-size:22px;
-cursor:pointer;
-background:rgba(255,255,255,0.08);
-padding:14px 18px;
-border-radius:18px;
-}
-
-.upgradeCard{
-background:rgba(25,25,35,0.92);
-padding:20px;
-border-radius:18px;
-width:280px;
-text-align:center;
-border:1px solid rgba(255,255,255,0.08);
-margin-bottom:16px;
-}
-
-.upgradeCard.done{
-background:rgba(0,0,0,0.75);
-opacity:0.65;
-}
-
-.redLine{
-height:4px;
-background:red;
-margin-top:12px;
-display:none;
-border-radius:10px;
-}
-
-.upgradeCard.done .redLine{
-display:block;
-}
-
-button{
-margin-top:12px;
-padding:12px 16px;
-border:none;
-border-radius:12px;
-cursor:pointer;
-font-size:16px;
-font-weight:bold;
-}
-
-.upgradeCard button{
-width:100%;
-background:#5865f2;
-color:white;
-}
-
-.upgradeCard button:disabled{
-background:#3d3d3d;
-}
-
-#offlineBox{
-position:fixed;
-inset:0;
-background:rgba(0,0,0,0.55);
-display:none;
-justify-content:center;
-align-items:center;
-z-index:40;
-padding:20px;
-box-sizing:border-box;
-}
-
-#offlineCard{
-width:320px;
-max-width:100%;
-background:#1f2230;
-border-radius:28px;
-padding:24px 20px;
-text-align:center;
-box-shadow:0 10px 40px rgba(0,0,0,0.55);
-}
-
-#offlineCoins{
-font-size:58px;
-font-weight:bold;
 display:flex;
-justify-content:center;
 align-items:center;
 gap:10px;
-margin-bottom:18px;
-}
-
-#offlineText{
-font-size:22px;
-font-weight:bold;
-line-height:1.3;
-margin-bottom:22px;
-}
-
-#claimBtn{
-width:100%;
-padding:18px;
-font-size:22px;
-font-weight:bold;
-border:none;
-border-radius:22px;
-background:#5865f2;
 color:white;
+font-size:26px;
+font-weight:bold;
+background:rgba(255,255,255,0.05);
+padding:10px 16px;
+border-radius:16px;
 }
 
-.profileCard{
-background:rgba(25,25,35,0.92);
-padding:24px;
-border-radius:20px;
-width:290px;
-max-width:90%;
-text-align:left;
-border:1px solid rgba(255,255,255,0.08);
-font-size:20px;
-line-height:1.9;
+#energyIcon{
+color:#ffb52e;
+font-size:32px;
 }
+
 </style>
 </head>
 
@@ -258,213 +112,73 @@ onclick="tap()"
 >
 </div>
 
-<div id="upgradeBtn" onclick="openUpgrades()">⚡ Улучшения</div>
-<div id="profileBtn" onclick="openProfile()">👤 Профиль</div>
-
-<div id="upgradeScreen">
-<div id="back" onclick="closeUpgrades()">← Назад</div>
-
-<h2>Улучшения</h2>
-
-<div id="taskClick" class="upgradeCard">
-<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⚡ +1 клик</div>
-<div style="font-size:18px;">Теперь будет 2 монеты за тап</div>
-<div style="font-size:18px;margin-top:8px;">Цена: 5000 🪙</div>
-<button id="buyBtnClick" onclick="buyClickUpgrade()">Купить</button>
-<div class="redLine"></div>
-</div>
-
-<div id="taskSpeed" class="upgradeCard">
-<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⏱ Быстрый доход</div>
-<div style="font-size:18px;">Монеты будут приходить каждые 4 сек</div>
-<div style="font-size:18px;margin-top:8px;">Цена: 1500 🪙</div>
-<button id="buyBtnSpeed" onclick="buySpeedUpgrade()">Купить</button>
-<div class="redLine"></div>
-</div>
-</div>
-
-<div id="profileScreen">
-<div id="profileBack" onclick="closeProfile()">← Назад</div>
-
-<h2>👤 Профиль</h2>
-
-<div class="profileCard">
-<div>🪙 Монеты: <span id="profileCoins">0</span></div>
-<div>⚡ Сила клика: <span id="profileClick">1</span></div>
-<div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
-<div>🛒 +1 клик: <span id="profileUpgradeClick">Не куплено</span></div>
-<div>🛒 Быстрый доход: <span id="profileUpgradeSpeed">Не куплено</span></div>
-</div>
-</div>
-
-<div id="offlineBox">
-  <div id="offlineCard">
-    <div id="offlineCoins">🪙 <span id="offlineAmount">0</span></div>
-    <div id="offlineText">Artemwe начал работать для вас</div>
-    <button id="claimBtn" onclick="claimOffline()">Спасибо, Artemwe 🤍</button>
-  </div>
+<div id="energyBox">
+<span id="energyIcon">⚡</span>
+<span id="energyText">1000 / 1000</span>
 </div>
 
 <script>
+
 document.addEventListener('dblclick', function(e){
 e.preventDefault();
 });
 
 let score = Number(localStorage.getItem("score")) || 0;
-let clickPower = Number(localStorage.getItem("clickPower")) || 1;
-let boughtClick = localStorage.getItem("upgradeBought") === "true";
-let boughtSpeed = localStorage.getItem("speedUpgradeBought") === "true";
-let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
-let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
-let offlineCoins = 0;
-let incomeInterval = null;
+let energy = Number(localStorage.getItem("energy")) || 1000;
+const maxEnergy = 1000;
 
 const scoreElement = document.getElementById("scoreNumber");
 const tapWrap = document.getElementById("tap-wrap");
-const taskClick = document.getElementById("taskClick");
-const taskSpeed = document.getElementById("taskSpeed");
-const buyBtnClick = document.getElementById("buyBtnClick");
-const buyBtnSpeed = document.getElementById("buyBtnSpeed");
-const offlineBox = document.getElementById("offlineBox");
-const offlineAmount = document.getElementById("offlineAmount");
+const energyText = document.getElementById("energyText");
 
 scoreElement.innerText = score;
-
-if(boughtClick){
-taskClick.classList.add("done");
-buyBtnClick.disabled = true;
-}
-
-if(boughtSpeed){
-taskSpeed.classList.add("done");
-buyBtnSpeed.disabled = true;
-}
-
-// оффлайн доход
-const now = Date.now();
-const secondsPassed = Math.floor((now - lastTime) / 1000);
-offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
-
-if(offlineCoins > 0){
-offlineAmount.innerText = formatCoins(offlineCoins);
-offlineBox.style.display = "flex";
-}
-
-function startIncomeLoop(){
-if(incomeInterval){
-clearInterval(incomeInterval);
-}
-
-incomeInterval = setInterval(() => {
-score += clickPower;
-scoreElement.innerText = score;
-localStorage.setItem("score", score);
-localStorage.setItem("last_time", Date.now());
-}, incomeSeconds * 1000);
-}
-
-startIncomeLoop();
+energyText.innerText = energy + " / " + maxEnergy;
 
 function tap(){
-score += clickPower;
+
+if(energy <= 0){
+return;
+}
+
+score++;
+energy--;
+
 scoreElement.innerText = score;
+energyText.innerText = energy + " / " + maxEnergy;
+
 localStorage.setItem("score", score);
-localStorage.setItem("last_time", Date.now());
+localStorage.setItem("energy", energy);
 
 const plus = document.createElement("div");
-plus.innerText = "+" + clickPower;
+
+plus.innerText = "+1";
+
 plus.className = "plus";
+
 tapWrap.appendChild(plus);
 
 setTimeout(() => {
 plus.remove();
 }, 800);
+
 }
 
-function openUpgrades(){
-document.getElementById("upgradeScreen").style.display = "flex";
+/* восстановление энергии */
+
+setInterval(() => {
+
+if(energy < maxEnergy){
+
+energy++;
+
+energyText.innerText = energy + " / " + maxEnergy;
+
+localStorage.setItem("energy", energy);
+
 }
 
-function closeUpgrades(){
-document.getElementById("upgradeScreen").style.display = "none";
-}
+}, 2000);
 
-function buyClickUpgrade(){
-if(boughtClick) return;
-
-if(score >= 5000){
-score -= 5000;
-clickPower = 2;
-boughtClick = true;
-
-localStorage.setItem("score", score);
-localStorage.setItem("clickPower", clickPower);
-localStorage.setItem("upgradeBought", "true");
-
-scoreElement.innerText = score;
-taskClick.classList.add("done");
-buyBtnClick.disabled = true;
-}else{
-alert("Недостаточно монет");
-}
-}
-
-function buySpeedUpgrade(){
-if(boughtSpeed) return;
-
-if(score >= 1500){
-score -= 1500;
-incomeSeconds = 4;
-boughtSpeed = true;
-
-localStorage.setItem("score", score);
-localStorage.setItem("incomeSeconds", incomeSeconds);
-localStorage.setItem("speedUpgradeBought", "true");
-
-scoreElement.innerText = score;
-taskSpeed.classList.add("done");
-buyBtnSpeed.disabled = true;
-
-startIncomeLoop();
-}else{
-alert("Недостаточно монет");
-}
-}
-
-function claimOffline(){
-score += offlineCoins;
-scoreElement.innerText = score;
-
-localStorage.setItem("score", score);
-localStorage.setItem("last_time", Date.now());
-
-offlineCoins = 0;
-offlineBox.style.display = "none";
-}
-
-function openProfile(){
-document.getElementById("profileScreen").style.display = "flex";
-document.getElementById("profileCoins").innerText = formatCoins(score);
-document.getElementById("profileClick").innerText = clickPower;
-document.getElementById("profileIncome").innerText = clickPower;
-document.getElementById("profileSeconds").innerText = incomeSeconds;
-document.getElementById("profileUpgradeClick").innerText = boughtClick ? "Куплено" : "Не куплено";
-document.getElementById("profileUpgradeSpeed").innerText = boughtSpeed ? "Куплено" : "Не куплено";
-}
-
-function closeProfile(){
-document.getElementById("profileScreen").style.display = "none";
-}
-
-function formatCoins(value){
-if (value >= 1000000) {
-return (value / 1000000).toFixed(2).replace(".", ",") + "M";
-}
-if (value >= 1000) {
-return (value / 1000).toFixed(2).replace(".", ",") + "K";
-}
-return value;
-}
 </script>
 
 </body>
