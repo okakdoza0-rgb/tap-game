@@ -2,16 +2,14 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
 <title>Artemwe Tap</title>
 
 <style>
 
 body{
 margin:0;
-background:black;
+background:url("1F67980F-7FC8-460D-B978-4E22B48E7767.png") center/cover no-repeat;
 height:100vh;
 display:flex;
 justify-content:center;
@@ -21,6 +19,7 @@ font-family:Arial;
 overflow:hidden;
 position:relative;
 touch-action:manipulation;
+color:white;
 }
 
 #score{
@@ -31,11 +30,13 @@ font-weight:bold;
 display:flex;
 align-items:center;
 gap:10px;
+z-index:2;
 }
 
 #tap-wrap{
 position:relative;
 display:inline-block;
+z-index:2;
 }
 
 #tap{
@@ -63,36 +64,168 @@ animation:floatUp 0.8s ease-out forwards;
 }
 
 @keyframes floatUp{
-0%{
-opacity:1;
-transform:translateX(-50%) translateY(0);
-}
-100%{
-opacity:0;
-transform:translateX(-50%) translateY(-80px);
-}
+0%{opacity:1;transform:translateX(-50%) translateY(0);}
+100%{opacity:0;transform:translateX(-50%) translateY(-80px);}
 }
 
-/* ЭНЕРГИЯ */
+#upgradeBtn{
+position:fixed;
+bottom:30px;
+left:20px;
+background:rgba(20,20,30,0.8);
+color:white;
+padding:14px 18px;
+border-radius:18px;
+cursor:pointer;
+font-size:18px;
+font-weight:bold;
+border:1px solid rgba(255,255,255,0.12);
+z-index:5;
+}
+
+#profileBtn{
+position:fixed;
+bottom:30px;
+right:20px;
+background:rgba(20,20,30,0.8);
+color:white;
+padding:14px 18px;
+border-radius:18px;
+cursor:pointer;
+font-size:18px;
+font-weight:bold;
+border:1px solid rgba(255,255,255,0.12);
+z-index:5;
+}
+
+/* энергия */
 
 #energyBox{
 position:fixed;
-bottom:30px;
+bottom:110px;
 left:20px;
 display:flex;
 align-items:center;
 gap:10px;
-color:white;
-font-size:26px;
+font-size:24px;
 font-weight:bold;
-background:rgba(255,255,255,0.05);
+background:rgba(20,20,30,0.8);
 padding:10px 16px;
-border-radius:16px;
+border-radius:18px;
+border:1px solid rgba(255,255,255,0.12);
+z-index:6;
 }
 
 #energyIcon{
 color:#ffb52e;
-font-size:32px;
+font-size:28px;
+}
+
+#upgradeScreen,
+#profileScreen{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.95);
+display:none;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+color:white;
+z-index:20;
+padding:20px;
+box-sizing:border-box;
+}
+
+#back,
+#profileBack{
+position:absolute;
+top:20px;
+left:20px;
+font-size:22px;
+cursor:pointer;
+background:rgba(255,255,255,0.08);
+padding:14px 18px;
+border-radius:18px;
+}
+
+.upgradeCard{
+background:rgba(25,25,35,0.92);
+padding:20px;
+border-radius:18px;
+width:280px;
+text-align:center;
+border:1px solid rgba(255,255,255,0.08);
+margin-bottom:16px;
+}
+
+.upgradeCard.done{
+background:rgba(0,0,0,0.75);
+opacity:0.65;
+}
+
+.redLine{
+height:4px;
+background:red;
+margin-top:12px;
+display:none;
+border-radius:10px;
+}
+
+.upgradeCard.done .redLine{
+display:block;
+}
+
+button{
+margin-top:12px;
+padding:12px 16px;
+border:none;
+border-radius:12px;
+cursor:pointer;
+font-size:16px;
+font-weight:bold;
+}
+
+.upgradeCard button{
+width:100%;
+background:#5865f2;
+color:white;
+}
+
+.upgradeCard button:disabled{
+background:#3d3d3d;
+}
+
+#offlineBox{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.55);
+display:none;
+justify-content:center;
+align-items:center;
+z-index:40;
+}
+
+#offlineCard{
+width:320px;
+background:#1f2230;
+border-radius:28px;
+padding:24px;
+text-align:center;
+}
+
+.profileCard{
+background:rgba(25,25,35,0.92);
+padding:24px;
+border-radius:20px;
+width:290px;
+max-width:90%;
+text-align:left;
+border:1px solid rgba(255,255,255,0.08);
+font-size:20px;
+line-height:1.9;
 }
 
 </style>
@@ -105,27 +238,67 @@ font-size:32px;
 </div>
 
 <div id="tap-wrap">
-<img
-id="tap"
+<img id="tap"
 src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"
-onclick="tap()"
->
+onclick="tap()">
 </div>
+
+<div id="upgradeBtn" onclick="openUpgrades()">⚡ Улучшения</div>
+<div id="profileBtn" onclick="openProfile()">👤 Профиль</div>
 
 <div id="energyBox">
 <span id="energyIcon">⚡</span>
-<span id="energyText">1000 / 1000</span>
+<span id="energyText">500 / 500</span>
+</div>
+
+<div id="upgradeScreen">
+<div id="back" onclick="closeUpgrades()">← Назад</div>
+
+<h2>Улучшения</h2>
+
+<div id="taskClick" class="upgradeCard">
+<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⚡ +1 клик</div>
+<div>Теперь будет 2 монеты за тап</div>
+<div style="margin-top:8px;">Цена: 5000 🪙</div>
+<button id="buyBtnClick" onclick="buyClickUpgrade()">Купить</button>
+<div class="redLine"></div>
+</div>
+
+<div id="taskSpeed" class="upgradeCard">
+<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">⏱ Быстрый доход</div>
+<div>Монеты будут приходить каждые 4 сек</div>
+<div style="margin-top:8px;">Цена: 1500 🪙</div>
+<button id="buyBtnSpeed" onclick="buySpeedUpgrade()">Купить</button>
+<div class="redLine"></div>
+</div>
+</div>
+
+<div id="profileScreen">
+<div id="profileBack" onclick="closeProfile()">← Назад</div>
+
+<h2>👤 Профиль</h2>
+
+<div class="profileCard">
+<div>🪙 Монеты: <span id="profileCoins">0</span></div>
+<div>⚡ Сила клика: <span id="profileClick">1</span></div>
+<div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
+<div>🛒 +1 клик: <span id="profileUpgradeClick">Не куплено</span></div>
+<div>🛒 Быстрый доход: <span id="profileUpgradeSpeed">Не куплено</span></div>
+</div>
 </div>
 
 <script>
 
-document.addEventListener('dblclick', function(e){
-e.preventDefault();
-});
-
 let score = Number(localStorage.getItem("score")) || 0;
-let energy = Number(localStorage.getItem("energy")) || 1000;
-const maxEnergy = 1000;
+let clickPower = Number(localStorage.getItem("clickPower")) || 1;
+let boughtClick = localStorage.getItem("upgradeBought") === "true";
+let boughtSpeed = localStorage.getItem("speedUpgradeBought") === "true";
+let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
+
+/* энергия */
+
+let energy = Number(localStorage.getItem("energy")) || 500;
+const maxEnergy = 500;
 
 const scoreElement = document.getElementById("scoreNumber");
 const tapWrap = document.getElementById("tap-wrap");
@@ -140,44 +313,35 @@ if(energy <= 0){
 return;
 }
 
-score++;
 energy--;
-
-scoreElement.innerText = score;
 energyText.innerText = energy + " / " + maxEnergy;
-
-localStorage.setItem("score", score);
 localStorage.setItem("energy", energy);
 
+score += clickPower;
+scoreElement.innerText = score;
+localStorage.setItem("score", score);
+
 const plus = document.createElement("div");
-
-plus.innerText = "+1";
-
+plus.innerText = "+" + clickPower;
 plus.className = "plus";
-
 tapWrap.appendChild(plus);
 
-setTimeout(() => {
-plus.remove();
-}, 800);
-
+setTimeout(()=>{plus.remove();},800);
 }
 
 /* восстановление энергии */
 
-setInterval(() => {
+setInterval(()=>{
 
 if(energy < maxEnergy){
 
 energy++;
-
 energyText.innerText = energy + " / " + maxEnergy;
-
 localStorage.setItem("energy", energy);
 
 }
 
-}, 2000);
+},2000);
 
 </script>
 
