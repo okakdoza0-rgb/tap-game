@@ -479,6 +479,7 @@ let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0
 let task10kDone = localStorage.getItem("task10kDone") === "true";
 let taskBuy1UpgradeDone = localStorage.getItem("taskBuy1UpgradeDone") === "true";
 let taskEmptyEnergyDone = localStorage.getItem("taskEmptyEnergyDone") === "true";
+let energyWasZero = localStorage.getItem("energyWasZero") === "true";
 
 let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
 let offlineCoins = 0;
@@ -518,6 +519,7 @@ function saveGame(){
   localStorage.setItem("task10kDone", task10kDone ? "true" : "false");
   localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone ? "true" : "false");
   localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone ? "true" : "false");
+  localStorage.setItem("energyWasZero", energyWasZero ? "true" : "false");
   localStorage.setItem("upgradeBought", boughtClick ? "true" : "false");
   localStorage.setItem("speedUpgradeBought", boughtSpeed ? "true" : "false");
   localStorage.setItem("last_time", Date.now());
@@ -540,7 +542,7 @@ function updateUI(){
     claimTaskBuy1UpgradeBtn.disabled = true;
   }
 
-  if(energy === 0 && !taskEmptyEnergyDone){
+  if(energyWasZero && !taskEmptyEnergyDone){
     claimTaskEmptyEnergyBtn.disabled = false;
   }else{
     claimTaskEmptyEnergyBtn.disabled = true;
@@ -631,6 +633,10 @@ function tap(){
 
   score += clickPower;
   energy -= energyCost;
+
+  if(energy === 0){
+    energyWasZero = true;
+  }
 
   updateUI();
   saveGame();
@@ -761,7 +767,7 @@ function claimTaskBuy1Upgrade(){
 
 function claimTaskEmptyEnergy(){
   if(taskEmptyEnergyDone) return;
-  if(energy !== 0) return;
+  if(!energyWasZero) return;
 
   score += 2000;
   taskEmptyEnergyDone = true;
