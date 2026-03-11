@@ -522,6 +522,12 @@ display:block;
         <img src="2EAAD64D-B377-440E-A0FD-419572703434.png" alt="Скин 3">
         <div class="skinName">Скин 3</div>
       </div>
+
+      <div class="skinItem" id="skin4Card" onclick="setSkin('0904E107-1671-4606-A277-1B319524A769.png')">
+        <div class="skinSelected">Выбран</div>
+        <img src="0904E107-1671-4606-A277-1B319524A769.png" alt="Скин 4">
+        <div class="skinName">Скин 4</div>
+      </div>
     </div>
   </div>
 </div>
@@ -606,6 +612,7 @@ const offlineAmount = document.getElementById("offlineAmount");
 const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
 const skin3Card = document.getElementById("skin3Card");
+const skin4Card = document.getElementById("skin4Card");
 
 function saveGame(){
   localStorage.setItem("score", score);
@@ -636,10 +643,12 @@ function updateSkinUI(){
   skin1Card.classList.remove("active");
   skin2Card.classList.remove("active");
   skin3Card.classList.remove("active");
+  skin4Card.classList.remove("active");
 
   if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png") skin1Card.classList.add("active");
   if(currentSkin === "34263F1D-DEA2-444B-9ED8-18A9185A39CD.png") skin2Card.classList.add("active");
   if(currentSkin === "2EAAD64D-B377-440E-A0FD-419572703434.png") skin3Card.classList.add("active");
+  if(currentSkin === "0904E107-1671-4606-A277-1B319524A769.png") skin4Card.classList.add("active");
 }
 
 function setSkin(filename){
@@ -861,7 +870,11 @@ function buyEnergyUpgrade(){
     score -= 6500;
     maxEnergy += 500;
     energy += 500;
-    if(energy > maxEnergy) energy = maxEnergy;
+
+    if(energy > maxEnergy){
+      energy = maxEnergy;
+    }
+
     energyUpgradeCount += 1;
     updateUI();
     saveGame();
