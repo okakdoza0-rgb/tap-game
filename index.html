@@ -147,6 +147,7 @@ position:sticky;
 top:0;
 background:#fff;
 z-index:5;
+flex-wrap:wrap;
 }
 
 .topTab{
@@ -164,7 +165,8 @@ font-weight:bold;
 }
 
 #upgradesContent,
-#tasksContent{
+#tasksContent,
+#skinsContent{
 width:100%;
 box-sizing:border-box;
 padding:22px 18px 30px;
@@ -378,6 +380,7 @@ color:black;
   <div id="upgradeTopTabs">
     <div id="tasksTab" class="topTab" onclick="showTasksTab()">Задания</div>
     <div id="upgradesTab" class="topTab active" onclick="showUpgradesTab()">Улучшения</div>
+    <div id="skinsTab" class="topTab" onclick="showSkinsTab()">Скины</div>
   </div>
 
   <div id="tasksContent" style="display:none;">
@@ -447,6 +450,16 @@ color:black;
       <div class="whiteCardPrice">Цена: 7000 🪙</div>
       <button id="buyBtnFastEnergy" class="buyBtnWhite" onclick="buyFastEnergy()">Купить</button>
       <div class="redLine"></div>
+    </div>
+  </div>
+
+  <div id="skinsContent" style="display:none;">
+    <div class="screenTitle">Скины</div>
+
+    <div class="whiteCard">
+      <div class="whiteCardTitle">Скины</div>
+      <div class="whiteCardText">Скоро будет</div>
+      <button class="buyBtnWhite" disabled>Скоро</button>
     </div>
   </div>
 </div>
@@ -706,15 +719,28 @@ function closeUpgrades(){
 function showTasksTab(){
   document.getElementById("tasksContent").style.display = "block";
   document.getElementById("upgradesContent").style.display = "none";
+  document.getElementById("skinsContent").style.display = "none";
   document.getElementById("tasksTab").classList.add("active");
   document.getElementById("upgradesTab").classList.remove("active");
+  document.getElementById("skinsTab").classList.remove("active");
 }
 
 function showUpgradesTab(){
   document.getElementById("tasksContent").style.display = "none";
   document.getElementById("upgradesContent").style.display = "block";
+  document.getElementById("skinsContent").style.display = "none";
   document.getElementById("tasksTab").classList.remove("active");
   document.getElementById("upgradesTab").classList.add("active");
+  document.getElementById("skinsTab").classList.remove("active");
+}
+
+function showSkinsTab(){
+  document.getElementById("tasksContent").style.display = "none";
+  document.getElementById("upgradesContent").style.display = "none";
+  document.getElementById("skinsContent").style.display = "block";
+  document.getElementById("tasksTab").classList.remove("active");
+  document.getElementById("upgradesTab").classList.remove("active");
+  document.getElementById("skinsTab").classList.add("active");
 }
 
 function buyClickUpgrade(){
