@@ -683,24 +683,28 @@ function applyDoneStates(){
 
   if(task10kDone){
     task10k.classList.add("done");
+    claimTask10kBtn.disabled = true;
   }else{
     task10k.classList.remove("done");
   }
 
   if(taskBuy1UpgradeDone){
     taskBuy1Upgrade.classList.add("done");
+    claimTaskBuy1UpgradeBtn.disabled = true;
   }else{
     taskBuy1Upgrade.classList.remove("done");
   }
 
   if(taskEmptyEnergyDone){
     taskEmptyEnergy.classList.add("done");
+    claimTaskEmptyEnergyBtn.disabled = true;
   }else{
     taskEmptyEnergy.classList.remove("done");
   }
 
   if(task2000EnergyDone){
     task2000Energy.classList.add("done");
+    claimTask2000EnergyBtn.disabled = true;
   }else{
     task2000Energy.classList.remove("done");
   }
@@ -711,10 +715,10 @@ function updateUI(){
   energyElement.innerText = energy;
   maxEnergyElement.innerText = maxEnergy;
 
-  claimTask10kBtn.disabled = !(score >= 10000 && !task10kDone);
-  claimTaskBuy1UpgradeBtn.disabled = !(hasAnyUpgradeBought() && !taskBuy1UpgradeDone);
-  claimTaskEmptyEnergyBtn.disabled = !((energyWasZero || energy === 0) && !taskEmptyEnergyDone);
-  claimTask2000EnergyBtn.disabled = !(maxEnergy >= 2000 && !task2000EnergyDone);
+  if(!task10kDone) claimTask10kBtn.disabled = !(score >= 10000);
+  if(!taskBuy1UpgradeDone) claimTaskBuy1UpgradeBtn.disabled = !(hasAnyUpgradeBought());
+  if(!taskEmptyEnergyDone) claimTaskEmptyEnergyBtn.disabled = !((energyWasZero || energy === 0));
+  if(!task2000EnergyDone) claimTask2000EnergyBtn.disabled = !(maxEnergy >= 2000);
 
   applyDoneStates();
   updateSkinUI();
@@ -758,7 +762,7 @@ function startEnergyLoop(){
 }
 
 function tap(){
-  let energyCost = clickPower;
+  const energyCost = 1;
 
   if(energy < energyCost){
     return;
@@ -828,7 +832,6 @@ function buyClickUpgrade(){
     score -= 5000;
     clickPower = 2;
     boughtClick = true;
-
     updateUI();
     saveGame();
   }else{
@@ -843,7 +846,6 @@ function buySpeedUpgrade(){
     score -= 1500;
     incomeSeconds = 4;
     boughtSpeed = true;
-
     updateUI();
     saveGame();
     startIncomeLoop();
@@ -859,13 +861,8 @@ function buyEnergyUpgrade(){
     score -= 6500;
     maxEnergy += 500;
     energy += 500;
-
-    if(energy > maxEnergy){
-      energy = maxEnergy;
-    }
-
+    if(energy > maxEnergy) energy = maxEnergy;
     energyUpgradeCount += 1;
-
     updateUI();
     saveGame();
   }else{
@@ -880,7 +877,6 @@ function buyFastEnergy(){
     score -= 7000;
     fastEnergy = true;
     energyDelay = 2000;
-
     updateUI();
     saveGame();
     startEnergyLoop();
@@ -953,6 +949,13 @@ function formatCoins(value){
   }
   return value;
 }
+
+window.addEventListener("beforeunload", saveGame);
+document.addEventListener("visibilitychange", () => {
+  if(document.hidden){
+    saveGame();
+  }
+});
 
 updateUI();
 startIncomeLoop();
