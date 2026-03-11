@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ArTap</title>
 
 <style>
@@ -553,29 +553,30 @@ document.addEventListener('dblclick', function(e){
   e.preventDefault();
 });
 
-let score = Number(localStorage.getItem("score")) || 0;
-let clickPower = Number(localStorage.getItem("clickPower")) || 1;
-let boughtClick = localStorage.getItem("upgradeBought") === "true";
-let boughtSpeed = localStorage.getItem("speedUpgradeBought") === "true";
-let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
+const userId = "artap_player";
 
-let fastEnergy = localStorage.getItem("fastEnergy") === "true";
-let energyDelay = fastEnergy ? 2000 : 3000;
+let score = 0;
+let clickPower = 1;
+let boughtClick = false;
+let boughtSpeed = false;
+let incomeSeconds = 5;
 
-let currentSkin = localStorage.getItem("currentSkin") || "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+let fastEnergy = false;
+let energyDelay = 3000;
 
-let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
-let energy = Number(localStorage.getItem("energy"));
-if (isNaN(energy)) energy = maxEnergy;
+let currentSkin = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 
-let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0;
-let task10kDone = localStorage.getItem("task10kDone") === "true";
-let taskBuy1UpgradeDone = localStorage.getItem("taskBuy1UpgradeDone") === "true";
-let taskEmptyEnergyDone = localStorage.getItem("taskEmptyEnergyDone") === "true";
-let task2000EnergyDone = localStorage.getItem("task2000EnergyDone") === "true";
-let energyWasZero = localStorage.getItem("energyWasZero") === "true";
+let maxEnergy = 500;
+let energy = 500;
 
-let lastTime = Number(localStorage.getItem("last_time")) || Date.now();
+let energyUpgradeCount = 0;
+let task10kDone = false;
+let taskBuy1UpgradeDone = false;
+let taskEmptyEnergyDone = false;
+let task2000EnergyDone = false;
+let energyWasZero = false;
+
+let lastTime = Date.now();
 let offlineCoins = 0;
 let incomeInterval = null;
 let energyInterval = null;
@@ -611,23 +612,79 @@ function hasAnyUpgradeBought(){
   return boughtClick || boughtSpeed || energyUpgradeCount > 0 || fastEnergy;
 }
 
-function saveGame(){
-  localStorage.setItem("score", score);
-  localStorage.setItem("clickPower", clickPower);
-  localStorage.setItem("incomeSeconds", incomeSeconds);
-  localStorage.setItem("energy", energy);
-  localStorage.setItem("maxEnergy", maxEnergy);
-  localStorage.setItem("energyUpgradeCount", energyUpgradeCount);
-  localStorage.setItem("task10kDone", task10kDone ? "true" : "false");
-  localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone ? "true" : "false");
-  localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone ? "true" : "false");
-  localStorage.setItem("task2000EnergyDone", task2000EnergyDone ? "true" : "false");
-  localStorage.setItem("energyWasZero", energyWasZero ? "true" : "false");
-  localStorage.setItem("fastEnergy", fastEnergy ? "true" : "false");
-  localStorage.setItem("currentSkin", currentSkin);
-  localStorage.setItem("upgradeBought", boughtClick ? "true" : "false");
-  localStorage.setItem("speedUpgradeBought", boughtSpeed ? "true" : "false");
-  localStorage.setItem("last_time", Date.now());
+async function loadGame(){
+  const res = await fetch("/get-player?userId=" + encodeURIComponent(userId));
+  const data = await res.json();
+
+  score = Number(data.score) || 0;
+  clickPower = Number(data.clickPower) || 1;
+  boughtClick = !!data.boughtClick;
+  boughtSpeed = !!data.boughtSpeed;
+  incomeSeconds = Number(data.incomeSeconds) || 5;
+
+  fastEnergy = !!data.fastEnergy;
+  energyDelay = fastEnergy ? 2000 : 3000;
+
+  currentSkin = data.currentSkin || "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+
+  maxEnergy = Number(data.maxEnergy) || 500;
+  energy = Number(data.energy);
+  if (isNaN(energy)) energy = maxEnergy;
+
+  energyUpgradeCount = Number(data.energyUpgradeCount) || 0;
+  task10kDone = !!data.task10kDone;
+  taskBuy1UpgradeDone = !!data.taskBuy1UpgradeDone;
+  taskEmptyEnergyDone = !!data.taskEmptyEnergyDone;
+  task2000EnergyDone = !!data.task2000EnergyDone;
+  energyWasZero = !!data.energyWasZero;
+
+  lastTime = Number(data.lastTime) || Date.now();
+
+  const now = Date.now();
+  const diffMs = now - lastTime;
+
+  if(diffMs > 0){
+    const secondsPassed = Math.floor(diffMs / 1000);
+    offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
+
+    const restoredEnergy = Math.floor(diffMs / energyDelay);
+    energy = Math.min(maxEnergy, energy + restoredEnergy);
+  }
+
+  if(offlineCoins > 0){
+    offlineAmount.innerText = formatCoins(offlineCoins);
+    offlineBox.style.display = "flex";
+  }
+
+  updateUI();
+}
+
+async function saveGame(){
+  await fetch("/save-player",{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({
+      userId:userId,
+      score:score,
+      clickPower:clickPower,
+      boughtClick:boughtClick,
+      boughtSpeed:boughtSpeed,
+      incomeSeconds:incomeSeconds,
+      fastEnergy:fastEnergy,
+      energy:energy,
+      maxEnergy:maxEnergy,
+      energyUpgradeCount:energyUpgradeCount,
+      currentSkin:currentSkin,
+      task10kDone:task10kDone,
+      taskBuy1UpgradeDone:taskBuy1UpgradeDone,
+      taskEmptyEnergyDone:taskEmptyEnergyDone,
+      task2000EnergyDone:task2000EnergyDone,
+      energyWasZero:energyWasZero,
+      lastTime:Date.now()
+    })
+  });
 }
 
 function updateSkinUI(){
@@ -650,10 +707,68 @@ function updateSkinUI(){
   }
 }
 
-function setSkin(filename){
+async function setSkin(filename){
   currentSkin = filename;
   updateSkinUI();
-  saveGame();
+  await saveGame();
+}
+
+function applyDoneStates(){
+  if(boughtClick){
+    taskClick.classList.add("done");
+    buyBtnClick.disabled = true;
+  }else{
+    taskClick.classList.remove("done");
+    buyBtnClick.disabled = false;
+  }
+
+  if(boughtSpeed){
+    taskSpeed.classList.add("done");
+    buyBtnSpeed.disabled = true;
+  }else{
+    taskSpeed.classList.remove("done");
+    buyBtnSpeed.disabled = false;
+  }
+
+  if(energyUpgradeCount >= 3){
+    taskEnergy.classList.add("done");
+    buyBtnEnergy.disabled = true;
+  }else{
+    taskEnergy.classList.remove("done");
+    buyBtnEnergy.disabled = false;
+  }
+
+  if(fastEnergy){
+    taskFastEnergy.classList.add("done");
+    buyBtnFastEnergy.disabled = true;
+  }else{
+    taskFastEnergy.classList.remove("done");
+    buyBtnFastEnergy.disabled = false;
+  }
+
+  if(task10kDone){
+    task10k.classList.add("done");
+  }else{
+    task10k.classList.remove("done");
+  }
+
+  if(taskBuy1UpgradeDone){
+    taskBuy1Upgrade.classList.add("done");
+  }else{
+    taskBuy1Upgrade.classList.remove("done");
+  }
+
+  if(taskEmptyEnergyDone){
+    taskEmptyEnergy.classList.add("done");
+  }else{
+    taskEmptyEnergy.classList.remove("done");
+  }
+
+  if(task2000EnergyDone){
+    task2000Energy.classList.add("done");
+  }else{
+    task2000Energy.classList.remove("done");
+  }
 }
 
 function updateUI(){
@@ -661,98 +776,24 @@ function updateUI(){
   energyElement.innerText = energy;
   maxEnergyElement.innerText = maxEnergy;
 
-  if(score >= 10000 && !task10kDone){
-    claimTask10kBtn.disabled = false;
-  }else{
-    claimTask10kBtn.disabled = true;
-  }
+  claimTask10kBtn.disabled = !(score >= 10000 && !task10kDone);
+  claimTaskBuy1UpgradeBtn.disabled = !(hasAnyUpgradeBought() && !taskBuy1UpgradeDone);
+  claimTaskEmptyEnergyBtn.disabled = !((energyWasZero || energy === 0) && !taskEmptyEnergyDone);
+  claimTask2000EnergyBtn.disabled = !(maxEnergy >= 2000 && !task2000EnergyDone);
 
-  if(hasAnyUpgradeBought() && !taskBuy1UpgradeDone){
-    claimTaskBuy1UpgradeBtn.disabled = false;
-  }else{
-    claimTaskBuy1UpgradeBtn.disabled = true;
-  }
-
-  if(energyWasZero && !taskEmptyEnergyDone){
-    claimTaskEmptyEnergyBtn.disabled = false;
-  }else{
-    claimTaskEmptyEnergyBtn.disabled = true;
-  }
-
-  if(maxEnergy >= 2000 && !task2000EnergyDone){
-    claimTask2000EnergyBtn.disabled = false;
-  }else{
-    claimTask2000EnergyBtn.disabled = true;
-  }
-
+  applyDoneStates();
   updateSkinUI();
 }
-
-if(boughtClick){
-  taskClick.classList.add("done");
-  buyBtnClick.disabled = true;
-}
-
-if(boughtSpeed){
-  taskSpeed.classList.add("done");
-  buyBtnSpeed.disabled = true;
-}
-
-if(energyUpgradeCount >= 3){
-  taskEnergy.classList.add("done");
-  buyBtnEnergy.disabled = true;
-}
-
-if(fastEnergy){
-  taskFastEnergy.classList.add("done");
-  buyBtnFastEnergy.disabled = true;
-}
-
-if(task10kDone){
-  task10k.classList.add("done");
-  claimTask10kBtn.disabled = true;
-}
-
-if(taskBuy1UpgradeDone){
-  taskBuy1Upgrade.classList.add("done");
-  claimTaskBuy1UpgradeBtn.disabled = true;
-}
-
-if(taskEmptyEnergyDone){
-  taskEmptyEnergy.classList.add("done");
-  claimTaskEmptyEnergyBtn.disabled = true;
-}
-
-if(task2000EnergyDone){
-  task2000Energy.classList.add("done");
-  claimTask2000EnergyBtn.disabled = true;
-}
-
-const now = Date.now();
-const secondsPassed = Math.floor((now - lastTime) / 1000);
-
-offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
-
-const restoredEnergy = Math.floor((now - lastTime) / energyDelay);
-energy = Math.min(maxEnergy, energy + restoredEnergy);
-
-if(offlineCoins > 0){
-  offlineAmount.innerText = formatCoins(offlineCoins);
-  offlineBox.style.display = "flex";
-}
-
-updateUI();
-saveGame();
 
 function startIncomeLoop(){
   if(incomeInterval){
     clearInterval(incomeInterval);
   }
 
-  incomeInterval = setInterval(() => {
+  incomeInterval = setInterval(async () => {
     score += clickPower;
     updateUI();
-    saveGame();
+    await saveGame();
   }, incomeSeconds * 1000);
 }
 
@@ -761,19 +802,16 @@ function startEnergyLoop(){
     clearInterval(energyInterval);
   }
 
-  energyInterval = setInterval(() => {
+  energyInterval = setInterval(async () => {
     if(energy < maxEnergy){
       energy += 1;
       updateUI();
-      saveGame();
+      await saveGame();
     }
   }, energyDelay);
 }
 
-startIncomeLoop();
-startEnergyLoop();
-
-function tap(){
+async function tap(){
   let energyCost = clickPower;
 
   if(energy < energyCost){
@@ -783,12 +821,13 @@ function tap(){
   score += clickPower;
   energy -= energyCost;
 
-  if(energy === 0){
+  if(energy <= 0){
+    energy = 0;
     energyWasZero = true;
   }
 
   updateUI();
-  saveGame();
+  await saveGame();
 
   const plus = document.createElement("div");
   plus.innerText = "+" + clickPower;
@@ -836,7 +875,7 @@ function showSkinsTab(){
   document.getElementById("skinsTab").classList.add("active");
 }
 
-function buyClickUpgrade(){
+async function buyClickUpgrade(){
   if(boughtClick) return;
 
   if(score >= 5000){
@@ -844,17 +883,14 @@ function buyClickUpgrade(){
     clickPower = 2;
     boughtClick = true;
 
-    taskClick.classList.add("done");
-    buyBtnClick.disabled = true;
-
     updateUI();
-    saveGame();
+    await saveGame();
   }else{
     alert("Недостаточно монет");
   }
 }
 
-function buySpeedUpgrade(){
+async function buySpeedUpgrade(){
   if(boughtSpeed) return;
 
   if(score >= 1500){
@@ -862,18 +898,15 @@ function buySpeedUpgrade(){
     incomeSeconds = 4;
     boughtSpeed = true;
 
-    taskSpeed.classList.add("done");
-    buyBtnSpeed.disabled = true;
-
     updateUI();
-    saveGame();
+    await saveGame();
     startIncomeLoop();
   }else{
     alert("Недостаточно монет");
   }
 }
 
-function buyEnergyUpgrade(){
+async function buyEnergyUpgrade(){
   if(energyUpgradeCount >= 3) return;
 
   if(score >= 6500){
@@ -887,19 +920,14 @@ function buyEnergyUpgrade(){
 
     energyUpgradeCount += 1;
 
-    if(energyUpgradeCount >= 3){
-      taskEnergy.classList.add("done");
-      buyBtnEnergy.disabled = true;
-    }
-
     updateUI();
-    saveGame();
+    await saveGame();
   }else{
     alert("Недостаточно монет");
   }
 }
 
-function buyFastEnergy(){
+async function buyFastEnergy(){
   if(fastEnergy) return;
 
   if(score >= 7000){
@@ -907,79 +935,64 @@ function buyFastEnergy(){
     fastEnergy = true;
     energyDelay = 2000;
 
-    taskFastEnergy.classList.add("done");
-    buyBtnFastEnergy.disabled = true;
-
     updateUI();
-    saveGame();
+    await saveGame();
     startEnergyLoop();
   }else{
     alert("Недостаточно монет");
   }
 }
 
-function claimTask10k(){
+async function claimTask10k(){
   if(task10kDone) return;
   if(score < 10000) return;
 
   score += 500;
   task10kDone = true;
 
-  task10k.classList.add("done");
-  claimTask10kBtn.disabled = true;
-
   updateUI();
-  saveGame();
+  await saveGame();
 }
 
-function claimTaskBuy1Upgrade(){
+async function claimTaskBuy1Upgrade(){
   if(taskBuy1UpgradeDone) return;
   if(!hasAnyUpgradeBought()) return;
 
   score += 2000;
   taskBuy1UpgradeDone = true;
 
-  taskBuy1Upgrade.classList.add("done");
-  claimTaskBuy1UpgradeBtn.disabled = true;
-
   updateUI();
-  saveGame();
+  await saveGame();
 }
 
-function claimTaskEmptyEnergy(){
+async function claimTaskEmptyEnergy(){
   if(taskEmptyEnergyDone) return;
-  if(!energyWasZero) return;
+  if(!(energyWasZero || energy === 0)) return;
 
   score += 2000;
   taskEmptyEnergyDone = true;
 
-  taskEmptyEnergy.classList.add("done");
-  claimTaskEmptyEnergyBtn.disabled = true;
-
   updateUI();
-  saveGame();
+  await saveGame();
 }
 
-function claimTask2000Energy(){
+async function claimTask2000Energy(){
   if(task2000EnergyDone) return;
   if(maxEnergy < 2000) return;
 
   score += 2500;
   task2000EnergyDone = true;
 
-  task2000Energy.classList.add("done");
-  claimTask2000EnergyBtn.disabled = true;
-
   updateUI();
-  saveGame();
+  await saveGame();
 }
 
-function claimOffline(){
+async function claimOffline(){
   score += offlineCoins;
   offlineCoins = 0;
 
   updateUI();
-  saveGame();
+  await saveGame();
 
   offlineBox.style.display = "none";
 }
@@ -1008,6 +1021,14 @@ function formatCoins(value){
   }
   return value;
 }
+
+async function initGame(){
+  await loadGame();
+  startIncomeLoop();
+  startEnergyLoop();
+}
+
+initGame();
 </script>
 
 </body>
