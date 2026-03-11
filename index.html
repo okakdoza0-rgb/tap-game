@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ArTap</title>
 
 <style>
@@ -348,6 +348,54 @@ font-size:20px;
 line-height:1.9;
 color:black;
 }
+
+.skinsGrid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:16px;
+}
+
+.skinItem{
+background:#fff;
+border:1px solid #e8e8e8;
+border-radius:22px;
+padding:14px;
+text-align:center;
+cursor:pointer;
+position:relative;
+}
+
+.skinItem img{
+width:100%;
+height:170px;
+object-fit:contain;
+border-radius:18px;
+background:#f5f5f5;
+}
+
+.skinName{
+font-size:18px;
+font-weight:bold;
+margin-top:10px;
+color:#111;
+}
+
+.skinSelected{
+position:absolute;
+top:10px;
+right:10px;
+background:#4c6fbf;
+color:white;
+font-size:14px;
+font-weight:bold;
+padding:6px 10px;
+border-radius:999px;
+display:none;
+}
+
+.skinItem.active .skinSelected{
+display:block;
+}
 </style>
 </head>
 
@@ -456,19 +504,24 @@ color:black;
   <div id="skinsContent" style="display:none;">
     <div class="screenTitle">Скины</div>
 
-    <div class="whiteCard">
-      <div class="whiteCardTitle">Скины</div>
-      <div class="whiteCardText">Скоро будет</div>
-      <button class="buyBtnWhite" disabled>Скоро</button>
+    <div class="skinsGrid">
+      <div class="skinItem" id="skin1Card" onclick="setSkin('FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png')">
+        <div class="skinSelected">Выбран</div>
+        <img src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" alt="Скин 1">
+        <div class="skinName">Скин 1</div>
+      </div>
+
+      <div class="skinItem" id="skin2Card" onclick="setSkin('34263F1D-DEA2-444B-9ED8-18A9185A39CD.png')">
+        <div class="skinSelected">Выбран</div>
+        <img src="34263F1D-DEA2-444B-9ED8-18A9185A39CD.png" alt="Скин 2">
+        <div class="skinName">Скин 2</div>
+      </div>
     </div>
   </div>
 </div>
 
 <div id="profileScreen">
-
-<div id="profileBack" onclick="closeProfile()">
-← Назад
-</div>
+<div id="profileBack" onclick="closeProfile()">← Назад</div>
 
 <h2 style="margin-top:60px;color:black;">Профиль</h2>
 
@@ -479,7 +532,6 @@ color:black;
 <div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
 <div>⚡ Реген энергии: <span id="profileEnergyRegen">3</span> сек</div>
 </div>
-
 </div>
 
 <div id="offlineBox">
@@ -504,6 +556,8 @@ let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
 let fastEnergy = localStorage.getItem("fastEnergy") === "true";
 let energyDelay = fastEnergy ? 2000 : 3000;
 
+let currentSkin = localStorage.getItem("currentSkin") || "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+
 let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
 let energy = Number(localStorage.getItem("energy"));
 if (isNaN(energy)) energy = maxEnergy;
@@ -524,6 +578,7 @@ const scoreElement = document.getElementById("scoreNumber");
 const energyElement = document.getElementById("energyNumber");
 const maxEnergyElement = document.getElementById("maxEnergyNumber");
 const tapWrap = document.getElementById("tap-wrap");
+const tapImage = document.getElementById("tap");
 const taskClick = document.getElementById("taskClick");
 const taskSpeed = document.getElementById("taskSpeed");
 const taskEnergy = document.getElementById("taskEnergy");
@@ -542,6 +597,8 @@ const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
 const claimTask2000EnergyBtn = document.getElementById("claimTask2000Energy");
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
+const skin1Card = document.getElementById("skin1Card");
+const skin2Card = document.getElementById("skin2Card");
 
 function hasAnyUpgradeBought(){
   return boughtClick || boughtSpeed || energyUpgradeCount > 0 || fastEnergy;
@@ -560,9 +617,31 @@ function saveGame(){
   localStorage.setItem("task2000EnergyDone", task2000EnergyDone ? "true" : "false");
   localStorage.setItem("energyWasZero", energyWasZero ? "true" : "false");
   localStorage.setItem("fastEnergy", fastEnergy ? "true" : "false");
+  localStorage.setItem("currentSkin", currentSkin);
   localStorage.setItem("upgradeBought", boughtClick ? "true" : "false");
   localStorage.setItem("speedUpgradeBought", boughtSpeed ? "true" : "false");
   localStorage.setItem("last_time", Date.now());
+}
+
+function updateSkinUI(){
+  tapImage.src = currentSkin;
+
+  skin1Card.classList.remove("active");
+  skin2Card.classList.remove("active");
+
+  if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"){
+    skin1Card.classList.add("active");
+  }
+
+  if(currentSkin === "34263F1D-DEA2-444B-9ED8-18A9185A39CD.png"){
+    skin2Card.classList.add("active");
+  }
+}
+
+function setSkin(filename){
+  currentSkin = filename;
+  updateSkinUI();
+  saveGame();
 }
 
 function updateUI(){
@@ -593,6 +672,8 @@ function updateUI(){
   }else{
     claimTask2000EnergyBtn.disabled = true;
   }
+
+  updateSkinUI();
 }
 
 if(boughtClick){
