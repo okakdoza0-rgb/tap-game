@@ -61,6 +61,7 @@ cursor:pointer;
 transition:transform 0.1s;
 user-select:none;
 -webkit-user-select:none;
+object-fit:contain;
 }
 
 #tap:active{
@@ -510,6 +511,12 @@ display:block;
         <img src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" alt="Скин 1">
         <div class="skinName">Скин 1</div>
       </div>
+
+      <div class="skinItem" id="skin2Card" onclick="setSkin('IMG_0808.png')">
+        <div class="skinSelected">Выбран</div>
+        <img src="IMG_0808.png" alt="Скин 2">
+        <div class="skinName">Скин 2</div>
+      </div>
     </div>
   </div>
 </div>
@@ -550,7 +557,7 @@ let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
 let fastEnergy = localStorage.getItem("fastEnergy") === "true";
 let energyDelay = fastEnergy ? 2000 : 3000;
 
-let currentSkin = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+let currentSkin = localStorage.getItem("currentSkin") || "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 
 let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
 let energy = Number(localStorage.getItem("energy"));
@@ -592,6 +599,7 @@ const claimTask2000EnergyBtn = document.getElementById("claimTask2000Energy");
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 const skin1Card = document.getElementById("skin1Card");
+const skin2Card = document.getElementById("skin2Card");
 
 function saveGame(){
   localStorage.setItem("score", score);
@@ -618,11 +626,16 @@ function hasAnyUpgradeBought(){
 
 function updateSkinUI(){
   tapImage.src = currentSkin;
-  skin1Card.classList.add("active");
+
+  skin1Card.classList.remove("active");
+  skin2Card.classList.remove("active");
+
+  if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png") skin1Card.classList.add("active");
+  if(currentSkin === "IMG_0808.png") skin2Card.classList.add("active");
 }
 
 function setSkin(filename){
-  currentSkin = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+  currentSkin = filename;
   updateSkinUI();
   saveGame();
 }
