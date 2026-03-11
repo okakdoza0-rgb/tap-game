@@ -553,30 +553,29 @@ document.addEventListener('dblclick', function(e){
   e.preventDefault();
 });
 
-const userId = "artap_player";
+let score = Number(localStorage.getItem("score")) || 0;
+let clickPower = Number(localStorage.getItem("clickPower")) || 1;
+let boughtClick = localStorage.getItem("boughtClick") === "true";
+let boughtSpeed = localStorage.getItem("boughtSpeed") === "true";
+let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
 
-let score = 0;
-let clickPower = 1;
-let boughtClick = false;
-let boughtSpeed = false;
-let incomeSeconds = 5;
+let fastEnergy = localStorage.getItem("fastEnergy") === "true";
+let energyDelay = fastEnergy ? 2000 : 3000;
 
-let fastEnergy = false;
-let energyDelay = 3000;
+let currentSkin = localStorage.getItem("currentSkin") || "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 
-let currentSkin = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
+let energy = Number(localStorage.getItem("energy"));
+if (isNaN(energy)) energy = maxEnergy;
 
-let maxEnergy = 500;
-let energy = 500;
+let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0;
+let task10kDone = localStorage.getItem("task10kDone") === "true";
+let taskBuy1UpgradeDone = localStorage.getItem("taskBuy1UpgradeDone") === "true";
+let taskEmptyEnergyDone = localStorage.getItem("taskEmptyEnergyDone") === "true";
+let task2000EnergyDone = localStorage.getItem("task2000EnergyDone") === "true";
+let energyWasZero = localStorage.getItem("energyWasZero") === "true";
 
-let energyUpgradeCount = 0;
-let task10kDone = false;
-let taskBuy1UpgradeDone = false;
-let taskEmptyEnergyDone = false;
-let task2000EnergyDone = false;
-let energyWasZero = false;
-
-let lastTime = Date.now();
+let lastTime = Number(localStorage.getItem("lastTime")) || Date.now();
 let offlineCoins = 0;
 let incomeInterval = null;
 let energyInterval = null;
@@ -608,83 +607,27 @@ const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
 const skin3Card = document.getElementById("skin3Card");
 
+function saveGame(){
+  localStorage.setItem("score", score);
+  localStorage.setItem("clickPower", clickPower);
+  localStorage.setItem("boughtClick", boughtClick);
+  localStorage.setItem("boughtSpeed", boughtSpeed);
+  localStorage.setItem("incomeSeconds", incomeSeconds);
+  localStorage.setItem("fastEnergy", fastEnergy);
+  localStorage.setItem("energy", energy);
+  localStorage.setItem("maxEnergy", maxEnergy);
+  localStorage.setItem("energyUpgradeCount", energyUpgradeCount);
+  localStorage.setItem("currentSkin", currentSkin);
+  localStorage.setItem("task10kDone", task10kDone);
+  localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone);
+  localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone);
+  localStorage.setItem("task2000EnergyDone", task2000EnergyDone);
+  localStorage.setItem("energyWasZero", energyWasZero);
+  localStorage.setItem("lastTime", Date.now());
+}
+
 function hasAnyUpgradeBought(){
   return boughtClick || boughtSpeed || energyUpgradeCount > 0 || fastEnergy;
-}
-
-async function loadGame(){
-  const res = await fetch("/get-player?userId=" + encodeURIComponent(userId));
-  const data = await res.json();
-
-  score = Number(data.score) || 0;
-  clickPower = Number(data.clickPower) || 1;
-  boughtClick = !!data.boughtClick;
-  boughtSpeed = !!data.boughtSpeed;
-  incomeSeconds = Number(data.incomeSeconds) || 5;
-
-  fastEnergy = !!data.fastEnergy;
-  energyDelay = fastEnergy ? 2000 : 3000;
-
-  currentSkin = data.currentSkin || "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
-
-  maxEnergy = Number(data.maxEnergy) || 500;
-  energy = Number(data.energy);
-  if (isNaN(energy)) energy = maxEnergy;
-
-  energyUpgradeCount = Number(data.energyUpgradeCount) || 0;
-  task10kDone = !!data.task10kDone;
-  taskBuy1UpgradeDone = !!data.taskBuy1UpgradeDone;
-  taskEmptyEnergyDone = !!data.taskEmptyEnergyDone;
-  task2000EnergyDone = !!data.task2000EnergyDone;
-  energyWasZero = !!data.energyWasZero;
-
-  lastTime = Number(data.lastTime) || Date.now();
-
-  const now = Date.now();
-  const diffMs = now - lastTime;
-
-  if(diffMs > 0){
-    const secondsPassed = Math.floor(diffMs / 1000);
-    offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
-
-    const restoredEnergy = Math.floor(diffMs / energyDelay);
-    energy = Math.min(maxEnergy, energy + restoredEnergy);
-  }
-
-  if(offlineCoins > 0){
-    offlineAmount.innerText = formatCoins(offlineCoins);
-    offlineBox.style.display = "flex";
-  }
-
-  updateUI();
-}
-
-async function saveGame(){
-  await fetch("/save-player",{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json"
-    },
-    body:JSON.stringify({
-      userId:userId,
-      score:score,
-      clickPower:clickPower,
-      boughtClick:boughtClick,
-      boughtSpeed:boughtSpeed,
-      incomeSeconds:incomeSeconds,
-      fastEnergy:fastEnergy,
-      energy:energy,
-      maxEnergy:maxEnergy,
-      energyUpgradeCount:energyUpgradeCount,
-      currentSkin:currentSkin,
-      task10kDone:task10kDone,
-      taskBuy1UpgradeDone:taskBuy1UpgradeDone,
-      taskEmptyEnergyDone:taskEmptyEnergyDone,
-      task2000EnergyDone:task2000EnergyDone,
-      energyWasZero:energyWasZero,
-      lastTime:Date.now()
-    })
-  });
 }
 
 function updateSkinUI(){
@@ -694,23 +637,15 @@ function updateSkinUI(){
   skin2Card.classList.remove("active");
   skin3Card.classList.remove("active");
 
-  if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"){
-    skin1Card.classList.add("active");
-  }
-
-  if(currentSkin === "34263F1D-DEA2-444B-9ED8-18A9185A39CD.png"){
-    skin2Card.classList.add("active");
-  }
-
-  if(currentSkin === "2EAAD64D-B377-440E-A0FD-419572703434.png"){
-    skin3Card.classList.add("active");
-  }
+  if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png") skin1Card.classList.add("active");
+  if(currentSkin === "34263F1D-DEA2-444B-9ED8-18A9185A39CD.png") skin2Card.classList.add("active");
+  if(currentSkin === "2EAAD64D-B377-440E-A0FD-419572703434.png") skin3Card.classList.add("active");
 }
 
-async function setSkin(filename){
+function setSkin(filename){
   currentSkin = filename;
   updateSkinUI();
-  await saveGame();
+  saveGame();
 }
 
 function applyDoneStates(){
@@ -785,33 +720,44 @@ function updateUI(){
   updateSkinUI();
 }
 
-function startIncomeLoop(){
-  if(incomeInterval){
-    clearInterval(incomeInterval);
-  }
+const now = Date.now();
+const diffMs = now - lastTime;
+if(diffMs > 0){
+  const secondsPassed = Math.floor(diffMs / 1000);
+  offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
 
-  incomeInterval = setInterval(async () => {
+  const restoredEnergy = Math.floor(diffMs / energyDelay);
+  energy = Math.min(maxEnergy, energy + restoredEnergy);
+}
+
+if(offlineCoins > 0){
+  offlineAmount.innerText = formatCoins(offlineCoins);
+  offlineBox.style.display = "flex";
+}
+
+function startIncomeLoop(){
+  if(incomeInterval) clearInterval(incomeInterval);
+
+  incomeInterval = setInterval(() => {
     score += clickPower;
     updateUI();
-    await saveGame();
+    saveGame();
   }, incomeSeconds * 1000);
 }
 
 function startEnergyLoop(){
-  if(energyInterval){
-    clearInterval(energyInterval);
-  }
+  if(energyInterval) clearInterval(energyInterval);
 
-  energyInterval = setInterval(async () => {
+  energyInterval = setInterval(() => {
     if(energy < maxEnergy){
       energy += 1;
       updateUI();
-      await saveGame();
+      saveGame();
     }
   }, energyDelay);
 }
 
-async function tap(){
+function tap(){
   let energyCost = clickPower;
 
   if(energy < energyCost){
@@ -827,7 +773,7 @@ async function tap(){
   }
 
   updateUI();
-  await saveGame();
+  saveGame();
 
   const plus = document.createElement("div");
   plus.innerText = "+" + clickPower;
@@ -875,7 +821,7 @@ function showSkinsTab(){
   document.getElementById("skinsTab").classList.add("active");
 }
 
-async function buyClickUpgrade(){
+function buyClickUpgrade(){
   if(boughtClick) return;
 
   if(score >= 5000){
@@ -884,13 +830,13 @@ async function buyClickUpgrade(){
     boughtClick = true;
 
     updateUI();
-    await saveGame();
+    saveGame();
   }else{
     alert("Недостаточно монет");
   }
 }
 
-async function buySpeedUpgrade(){
+function buySpeedUpgrade(){
   if(boughtSpeed) return;
 
   if(score >= 1500){
@@ -899,14 +845,14 @@ async function buySpeedUpgrade(){
     boughtSpeed = true;
 
     updateUI();
-    await saveGame();
+    saveGame();
     startIncomeLoop();
   }else{
     alert("Недостаточно монет");
   }
 }
 
-async function buyEnergyUpgrade(){
+function buyEnergyUpgrade(){
   if(energyUpgradeCount >= 3) return;
 
   if(score >= 6500){
@@ -921,13 +867,13 @@ async function buyEnergyUpgrade(){
     energyUpgradeCount += 1;
 
     updateUI();
-    await saveGame();
+    saveGame();
   }else{
     alert("Недостаточно монет");
   }
 }
 
-async function buyFastEnergy(){
+function buyFastEnergy(){
   if(fastEnergy) return;
 
   if(score >= 7000){
@@ -936,64 +882,50 @@ async function buyFastEnergy(){
     energyDelay = 2000;
 
     updateUI();
-    await saveGame();
+    saveGame();
     startEnergyLoop();
   }else{
     alert("Недостаточно монет");
   }
 }
 
-async function claimTask10k(){
-  if(task10kDone) return;
-  if(score < 10000) return;
-
+function claimTask10k(){
+  if(task10kDone || score < 10000) return;
   score += 500;
   task10kDone = true;
-
   updateUI();
-  await saveGame();
+  saveGame();
 }
 
-async function claimTaskBuy1Upgrade(){
-  if(taskBuy1UpgradeDone) return;
-  if(!hasAnyUpgradeBought()) return;
-
+function claimTaskBuy1Upgrade(){
+  if(taskBuy1UpgradeDone || !hasAnyUpgradeBought()) return;
   score += 2000;
   taskBuy1UpgradeDone = true;
-
   updateUI();
-  await saveGame();
+  saveGame();
 }
 
-async function claimTaskEmptyEnergy(){
-  if(taskEmptyEnergyDone) return;
-  if(!(energyWasZero || energy === 0)) return;
-
+function claimTaskEmptyEnergy(){
+  if(taskEmptyEnergyDone || !(energyWasZero || energy === 0)) return;
   score += 2000;
   taskEmptyEnergyDone = true;
-
   updateUI();
-  await saveGame();
+  saveGame();
 }
 
-async function claimTask2000Energy(){
-  if(task2000EnergyDone) return;
-  if(maxEnergy < 2000) return;
-
+function claimTask2000Energy(){
+  if(task2000EnergyDone || maxEnergy < 2000) return;
   score += 2500;
   task2000EnergyDone = true;
-
   updateUI();
-  await saveGame();
+  saveGame();
 }
 
-async function claimOffline(){
+function claimOffline(){
   score += offlineCoins;
   offlineCoins = 0;
-
   updateUI();
-  await saveGame();
-
+  saveGame();
   offlineBox.style.display = "none";
 }
 
@@ -1022,13 +954,9 @@ function formatCoins(value){
   return value;
 }
 
-async function initGame(){
-  await loadGame();
-  startIncomeLoop();
-  startEnergyLoop();
-}
-
-initGame();
+updateUI();
+startIncomeLoop();
+startEnergyLoop();
 </script>
 
 </body>
