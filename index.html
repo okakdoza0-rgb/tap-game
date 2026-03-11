@@ -351,7 +351,7 @@ color:black;
 
 .skinsGrid{
 display:grid;
-grid-template-columns:1fr 1fr;
+grid-template-columns:1fr;
 gap:16px;
 }
 
@@ -510,24 +510,6 @@ display:block;
         <img src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" alt="Скин 1">
         <div class="skinName">Скин 1</div>
       </div>
-
-      <div class="skinItem" id="skin2Card" onclick="setSkin('D5DF7F38-07F9-4568-8563-3A6F15EC9769.png')">
-        <div class="skinSelected">Выбран</div>
-        <img src="D5DF7F38-07F9-4568-8563-3A6F15EC9769.png" alt="Скин 2">
-        <div class="skinName">Скин 2</div>
-      </div>
-
-      <div class="skinItem" id="skin3Card" onclick="setSkin('2EAAD64D-B377-440E-A0FD-419572703434.png')">
-        <div class="skinSelected">Выбран</div>
-        <img src="2EAAD64D-B377-440E-A0FD-419572703434.png" alt="Скин 3">
-        <div class="skinName">Скин 3</div>
-      </div>
-
-      <div class="skinItem" id="skin4Card" onclick="setSkin('0904E107-1671-4606-A277-1B319524A769.png')">
-        <div class="skinSelected">Выбран</div>
-        <img src="0904E107-1671-4606-A277-1B319524A769.png" alt="Скин 4">
-        <div class="skinName">Скин 4</div>
-      </div>
     </div>
   </div>
 </div>
@@ -568,7 +550,7 @@ let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
 let fastEnergy = localStorage.getItem("fastEnergy") === "true";
 let energyDelay = fastEnergy ? 2000 : 3000;
 
-let currentSkin = localStorage.getItem("currentSkin") || "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+let currentSkin = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 
 let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
 let energy = Number(localStorage.getItem("energy"));
@@ -610,9 +592,6 @@ const claimTask2000EnergyBtn = document.getElementById("claimTask2000Energy");
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 const skin1Card = document.getElementById("skin1Card");
-const skin2Card = document.getElementById("skin2Card");
-const skin3Card = document.getElementById("skin3Card");
-const skin4Card = document.getElementById("skin4Card");
 
 function saveGame(){
   localStorage.setItem("score", score);
@@ -639,20 +618,11 @@ function hasAnyUpgradeBought(){
 
 function updateSkinUI(){
   tapImage.src = currentSkin;
-
-  skin1Card.classList.remove("active");
-  skin2Card.classList.remove("active");
-  skin3Card.classList.remove("active");
-  skin4Card.classList.remove("active");
-
-  if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png") skin1Card.classList.add("active");
-  if(currentSkin === "34263F1D-DEA2-444B-9ED8-18A9185A39CD.png") skin2Card.classList.add("active");
-  if(currentSkin === "2EAAD64D-B377-440E-A0FD-419572703434.png") skin3Card.classList.add("active");
-  if(currentSkin === "0904E107-1671-4606-A277-1B319524A769.png") skin4Card.classList.add("active");
+  skin1Card.classList.add("active");
 }
 
 function setSkin(filename){
-  currentSkin = filename;
+  currentSkin = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
   updateSkinUI();
   saveGame();
 }
