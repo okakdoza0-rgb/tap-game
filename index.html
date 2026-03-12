@@ -457,11 +457,11 @@ display:block;
       <div class="redLine"></div>
     </div>
 
-    <div id="task2000Energy" class="whiteCard">
-      <div class="whiteCardTitle">🔋 Дойди до 2000 энергии</div>
-      <div class="whiteCardText">Сделай максимум энергии 2000</div>
-      <div class="whiteCardText">Награда: 2500 🪙</div>
-      <button id="claimTask2000Energy" class="buyBtnWhite" onclick="claimTask2000Energy()" disabled>Выполнить</button>
+    <div id="task5000Energy" class="whiteCard">
+      <div class="whiteCardTitle">🔋 Дойди до 5000 энергии</div>
+      <div class="whiteCardText">Сделай максимум энергии 5000</div>
+      <div class="whiteCardText">Награда: 2000 🪙</div>
+      <button id="claimTask5000Energy" class="buyBtnWhite" onclick="claimTask5000Energy()" disabled>Выполнить</button>
       <div class="redLine"></div>
     </div>
   </div>
@@ -548,6 +548,12 @@ document.addEventListener('dblclick', function(e){
   e.preventDefault();
 });
 
+const DEFAULT_SKIN = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+const SKIN_2 = "07897B5D-2EC7-4125-8A56-BCCF888296F3.png";
+const MAX_ENERGY_TARGET = 5000;
+const ENERGY_STEP = 500;
+const MAX_ENERGY_UPGRADES = 9;
+
 let score = Number(localStorage.getItem("score")) || 0;
 let clickPower = Number(localStorage.getItem("clickPower")) || 1;
 let boughtClick = localStorage.getItem("boughtClick") === "true";
@@ -557,17 +563,18 @@ let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
 let fastEnergy = localStorage.getItem("fastEnergy") === "true";
 let energyDelay = fastEnergy ? 2000 : 3000;
 
-let currentSkin = localStorage.getItem("currentSkin") || "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
+let currentSkin = localStorage.getItem("currentSkin") || DEFAULT_SKIN;
 
 let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
 let energy = Number(localStorage.getItem("energy"));
-if (isNaN(energy)) energy = maxEnergy;
+if(isNaN(energy)) energy = maxEnergy;
 
 let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0;
+
 let task10kDone = localStorage.getItem("task10kDone") === "true";
 let taskBuy1UpgradeDone = localStorage.getItem("taskBuy1UpgradeDone") === "true";
 let taskEmptyEnergyDone = localStorage.getItem("taskEmptyEnergyDone") === "true";
-let task2000EnergyDone = localStorage.getItem("task2000EnergyDone") === "true";
+let task5000EnergyDone = localStorage.getItem("task5000EnergyDone") === "true";
 let energyWasZero = localStorage.getItem("energyWasZero") === "true";
 
 let lastTime = Number(localStorage.getItem("lastTime")) || Date.now();
@@ -580,24 +587,30 @@ const energyElement = document.getElementById("energyNumber");
 const maxEnergyElement = document.getElementById("maxEnergyNumber");
 const tapWrap = document.getElementById("tap-wrap");
 const tapImage = document.getElementById("tap");
+
 const taskClick = document.getElementById("taskClick");
 const taskSpeed = document.getElementById("taskSpeed");
 const taskEnergy = document.getElementById("taskEnergy");
 const taskFastEnergy = document.getElementById("taskFastEnergy");
+
 const task10k = document.getElementById("task10k");
 const taskBuy1Upgrade = document.getElementById("taskBuy1Upgrade");
 const taskEmptyEnergy = document.getElementById("taskEmptyEnergy");
-const task2000Energy = document.getElementById("task2000Energy");
+const task5000Energy = document.getElementById("task5000Energy");
+
 const buyBtnClick = document.getElementById("buyBtnClick");
 const buyBtnSpeed = document.getElementById("buyBtnSpeed");
 const buyBtnEnergy = document.getElementById("buyBtnEnergy");
 const buyBtnFastEnergy = document.getElementById("buyBtnFastEnergy");
+
 const claimTask10kBtn = document.getElementById("claimTask10k");
 const claimTaskBuy1UpgradeBtn = document.getElementById("claimTaskBuy1Upgrade");
 const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
-const claimTask2000EnergyBtn = document.getElementById("claimTask2000Energy");
+const claimTask5000EnergyBtn = document.getElementById("claimTask5000Energy");
+
 const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
+
 const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
 
@@ -615,7 +628,7 @@ function saveGame(){
   localStorage.setItem("task10kDone", task10kDone);
   localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone);
   localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone);
-  localStorage.setItem("task2000EnergyDone", task2000EnergyDone);
+  localStorage.setItem("task5000EnergyDone", task5000EnergyDone);
   localStorage.setItem("energyWasZero", energyWasZero);
   localStorage.setItem("lastTime", Date.now());
 }
@@ -630,11 +643,11 @@ function updateSkinUI(){
   skin1Card.classList.remove("active");
   skin2Card.classList.remove("active");
 
-  if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"){
+  if(currentSkin === DEFAULT_SKIN){
     skin1Card.classList.add("active");
   }
 
-  if(currentSkin === "07897B5D-2EC7-4125-8A56-BCCF888296F3.png"){
+  if(currentSkin === SKIN_2){
     skin2Card.classList.add("active");
   }
 }
@@ -662,7 +675,7 @@ function applyDoneStates(){
     buyBtnSpeed.disabled = false;
   }
 
-  if(energyUpgradeCount >= 3){
+  if(energyUpgradeCount >= MAX_ENERGY_UPGRADES || maxEnergy >= MAX_ENERGY_TARGET){
     taskEnergy.classList.add("done");
     buyBtnEnergy.disabled = true;
   }else{
@@ -699,23 +712,37 @@ function applyDoneStates(){
     taskEmptyEnergy.classList.remove("done");
   }
 
-  if(task2000EnergyDone){
-    task2000Energy.classList.add("done");
-    claimTask2000EnergyBtn.disabled = true;
+  if(task5000EnergyDone){
+    task5000Energy.classList.add("done");
+    claimTask5000EnergyBtn.disabled = true;
   }else{
-    task2000Energy.classList.remove("done");
+    task5000Energy.classList.remove("done");
   }
 }
 
 function updateUI(){
+  if(energy > maxEnergy) energy = maxEnergy;
+  if(maxEnergy > MAX_ENERGY_TARGET) maxEnergy = MAX_ENERGY_TARGET;
+
   scoreElement.innerText = formatCoins(score);
   energyElement.innerText = energy;
   maxEnergyElement.innerText = maxEnergy;
 
-  if(!task10kDone) claimTask10kBtn.disabled = !(score >= 10000);
-  if(!taskBuy1UpgradeDone) claimTaskBuy1UpgradeBtn.disabled = !(hasAnyUpgradeBought());
-  if(!taskEmptyEnergyDone) claimTaskEmptyEnergyBtn.disabled = !((energyWasZero || energy === 0));
-  if(!task2000EnergyDone) claimTask2000EnergyBtn.disabled = !(maxEnergy >= 2000);
+  if(!task10kDone){
+    claimTask10kBtn.disabled = !(score >= 10000);
+  }
+
+  if(!taskBuy1UpgradeDone){
+    claimTaskBuy1UpgradeBtn.disabled = !(hasAnyUpgradeBought());
+  }
+
+  if(!taskEmptyEnergyDone){
+    claimTaskEmptyEnergyBtn.disabled = !(energyWasZero || energy === 0);
+  }
+
+  if(!task5000EnergyDone){
+    claimTask5000EnergyBtn.disabled = !(maxEnergy >= MAX_ENERGY_TARGET);
+  }
 
   applyDoneStates();
   updateSkinUI();
@@ -723,6 +750,7 @@ function updateUI(){
 
 const now = Date.now();
 const diffMs = now - lastTime;
+
 if(diffMs > 0){
   const secondsPassed = Math.floor(diffMs / 1000);
   offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
@@ -852,18 +880,25 @@ function buySpeedUpgrade(){
 }
 
 function buyEnergyUpgrade(){
-  if(energyUpgradeCount >= 3) return;
+  if(energyUpgradeCount >= MAX_ENERGY_UPGRADES || maxEnergy >= MAX_ENERGY_TARGET){
+    return;
+  }
 
   if(score >= 6500){
     score -= 6500;
-    maxEnergy += 500;
-    energy += 500;
+    maxEnergy += ENERGY_STEP;
 
+    if(maxEnergy > MAX_ENERGY_TARGET){
+      maxEnergy = MAX_ENERGY_TARGET;
+    }
+
+    energy += ENERGY_STEP;
     if(energy > maxEnergy){
       energy = maxEnergy;
     }
 
     energyUpgradeCount += 1;
+
     updateUI();
     saveGame();
   }else{
@@ -910,10 +945,10 @@ function claimTaskEmptyEnergy(){
   saveGame();
 }
 
-function claimTask2000Energy(){
-  if(task2000EnergyDone || maxEnergy < 2000) return;
-  score += 2500;
-  task2000EnergyDone = true;
+function claimTask5000Energy(){
+  if(task5000EnergyDone || maxEnergy < MAX_ENERGY_TARGET) return;
+  score += 2000;
+  task5000EnergyDone = true;
   updateUI();
   saveGame();
 }
@@ -942,16 +977,17 @@ function closeProfile(){
 }
 
 function formatCoins(value){
-  if (value >= 1000000) {
+  if(value >= 1000000){
     return (value / 1000000).toFixed(2).replace(".", ",") + "M";
   }
-  if (value >= 1000) {
+  if(value >= 1000){
     return (value / 1000).toFixed(2).replace(".", ",") + "K";
   }
   return value;
 }
 
 window.addEventListener("beforeunload", saveGame);
+
 document.addEventListener("visibilitychange", () => {
   if(document.hidden){
     saveGame();
