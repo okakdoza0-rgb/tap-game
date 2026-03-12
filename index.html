@@ -460,7 +460,7 @@ display:block;
     <div id="task5000Energy" class="whiteCard">
       <div class="whiteCardTitle">🔋 Дойди до 5000 энергии</div>
       <div class="whiteCardText">Сделай максимум энергии 5000</div>
-      <div class="whiteCardText">Награда: 2000 🪙</div>
+      <div class="whiteCardText">Награда: 2500 🪙</div>
       <button id="claimTask5000Energy" class="buyBtnWhite" onclick="claimTask5000Energy()" disabled>Выполнить</button>
       <div class="redLine"></div>
     </div>
@@ -544,7 +544,7 @@ display:block;
 </div>
 
 <script>
-document.addEventListener("dblclick", function(e){
+document.addEventListener('dblclick', function(e){
   e.preventDefault();
 });
 
@@ -553,32 +553,6 @@ const SKIN_2 = "07897B5D-2EC7-4125-8A56-BCCF888296F3.png";
 const MAX_ENERGY_TARGET = 5000;
 const ENERGY_STEP = 500;
 const MAX_ENERGY_UPGRADES = 9;
-
-function initNewPlayerIfNeeded(){
-  const isInitialized = localStorage.getItem("artap_initialized") === "true";
-
-  if(!isInitialized){
-    localStorage.setItem("score", "0");
-    localStorage.setItem("clickPower", "1");
-    localStorage.setItem("boughtClick", "false");
-    localStorage.setItem("boughtSpeed", "false");
-    localStorage.setItem("incomeSeconds", "5");
-    localStorage.setItem("fastEnergy", "false");
-    localStorage.setItem("energy", "500");
-    localStorage.setItem("maxEnergy", "500");
-    localStorage.setItem("energyUpgradeCount", "0");
-    localStorage.setItem("currentSkin", DEFAULT_SKIN);
-    localStorage.setItem("task10kDone", "false");
-    localStorage.setItem("taskBuy1UpgradeDone", "false");
-    localStorage.setItem("taskEmptyEnergyDone", "false");
-    localStorage.setItem("task5000EnergyDone", "false");
-    localStorage.setItem("energyWasZero", "false");
-    localStorage.setItem("lastTime", String(Date.now()));
-    localStorage.setItem("artap_initialized", "true");
-  }
-}
-
-initNewPlayerIfNeeded();
 
 let score = Number(localStorage.getItem("score")) || 0;
 let clickPower = Number(localStorage.getItem("clickPower")) || 1;
@@ -591,18 +565,9 @@ let energyDelay = fastEnergy ? 2000 : 3000;
 
 let currentSkin = localStorage.getItem("currentSkin") || DEFAULT_SKIN;
 
-let maxEnergy = Number(localStorage.getItem("maxEnergy"));
-if(isNaN(maxEnergy) || maxEnergy < 500){
-  maxEnergy = 500;
-}
-
+let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
 let energy = Number(localStorage.getItem("energy"));
-if(isNaN(energy) || energy < 0){
-  energy = maxEnergy;
-}
-if(energy > maxEnergy){
-  energy = maxEnergy;
-}
+if(isNaN(energy)) energy = maxEnergy;
 
 let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0;
 
@@ -650,23 +615,22 @@ const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
 
 function saveGame(){
-  localStorage.setItem("score", String(score));
-  localStorage.setItem("clickPower", String(clickPower));
-  localStorage.setItem("boughtClick", String(boughtClick));
-  localStorage.setItem("boughtSpeed", String(boughtSpeed));
-  localStorage.setItem("incomeSeconds", String(incomeSeconds));
-  localStorage.setItem("fastEnergy", String(fastEnergy));
-  localStorage.setItem("energy", String(energy));
-  localStorage.setItem("maxEnergy", String(maxEnergy));
-  localStorage.setItem("energyUpgradeCount", String(energyUpgradeCount));
+  localStorage.setItem("score", score);
+  localStorage.setItem("clickPower", clickPower);
+  localStorage.setItem("boughtClick", boughtClick);
+  localStorage.setItem("boughtSpeed", boughtSpeed);
+  localStorage.setItem("incomeSeconds", incomeSeconds);
+  localStorage.setItem("fastEnergy", fastEnergy);
+  localStorage.setItem("energy", energy);
+  localStorage.setItem("maxEnergy", maxEnergy);
+  localStorage.setItem("energyUpgradeCount", energyUpgradeCount);
   localStorage.setItem("currentSkin", currentSkin);
-  localStorage.setItem("task10kDone", String(task10kDone));
-  localStorage.setItem("taskBuy1UpgradeDone", String(taskBuy1UpgradeDone));
-  localStorage.setItem("taskEmptyEnergyDone", String(taskEmptyEnergyDone));
-  localStorage.setItem("task5000EnergyDone", String(task5000EnergyDone));
-  localStorage.setItem("energyWasZero", String(energyWasZero));
-  localStorage.setItem("lastTime", String(Date.now()));
-  localStorage.setItem("artap_initialized", "true");
+  localStorage.setItem("task10kDone", task10kDone);
+  localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone);
+  localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone);
+  localStorage.setItem("task5000EnergyDone", task5000EnergyDone);
+  localStorage.setItem("energyWasZero", energyWasZero);
+  localStorage.setItem("lastTime", Date.now());
 }
 
 function hasAnyUpgradeBought(){
@@ -757,10 +721,8 @@ function applyDoneStates(){
 }
 
 function updateUI(){
-  if(maxEnergy < 500) maxEnergy = 500;
-  if(maxEnergy > MAX_ENERGY_TARGET) maxEnergy = MAX_ENERGY_TARGET;
-  if(energy < 0) energy = 0;
   if(energy > maxEnergy) energy = maxEnergy;
+  if(maxEnergy > MAX_ENERGY_TARGET) maxEnergy = MAX_ENERGY_TARGET;
 
   scoreElement.innerText = formatCoins(score);
   energyElement.innerText = energy;
@@ -924,8 +886,8 @@ function buyEnergyUpgrade(){
 
   if(score >= 6500){
     score -= 6500;
-
     maxEnergy += ENERGY_STEP;
+
     if(maxEnergy > MAX_ENERGY_TARGET){
       maxEnergy = MAX_ENERGY_TARGET;
     }
@@ -985,7 +947,7 @@ function claimTaskEmptyEnergy(){
 
 function claimTask5000Energy(){
   if(task5000EnergyDone || maxEnergy < MAX_ENERGY_TARGET) return;
-  score += 2000;
+  score += 2500;
   task5000EnergyDone = true;
   updateUI();
   saveGame();
@@ -1033,7 +995,6 @@ document.addEventListener("visibilitychange", () => {
 });
 
 updateUI();
-saveGame();
 startIncomeLoop();
 startEnergyLoop();
 </script>
