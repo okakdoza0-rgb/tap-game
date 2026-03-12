@@ -77,10 +77,10 @@ app.get("/load/:id", (req, res) => {
       saveDB(db);
     }
 
-    res.json(db[id]);
+    return res.json(db[id]);
   } catch (error) {
     console.log("Ошибка /load:", error);
-    res.status(500).json({ error: "Ошибка загрузки" });
+    return res.status(500).json({ error: "Ошибка загрузки" });
   }
 });
 
@@ -136,13 +136,13 @@ app.post("/save/:id", (req, res) => {
 
     saveDB(db);
 
-    res.json({
+    return res.json({
       status: "ok",
       player: db[id]
     });
   } catch (error) {
     console.log("Ошибка /save:", error);
-    res.status(500).json({ error: "Ошибка сохранения" });
+    return res.status(500).json({ error: "Ошибка сохранения" });
   }
 });
 
