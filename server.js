@@ -6,7 +6,7 @@ const TelegramBot = require("node-telegram-bot-api");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(express.static(__dirname));
 
 /* =========================
@@ -92,10 +92,58 @@ function saveDB(data) {
   }
 }
 
-function getPlayerWithDefaults(player = {}) {
-  return {
+function toNumber(value, fallback) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function normalizePlayer(player = {}) {
+  const normalized = {
     ...DEFAULT_PLAYER,
     ...player
+  };
+
+  normalized.score = toNumber(player.score ?? player.coins, DEFAULT_PLAYER.score);
+  normalized.clickPower = toNumber(player.clickPower ?? player.click, DEFAULT_PLAYER.clickPower);
+  normalized.boughtClick = Boolean(player.boughtClick);
+  normalized.boughtSpeed = Boolean(player.boughtSpeed);
+  normalized.incomeSeconds = toNumber(player.incomeSeconds, DEFAULT_PLAYER.incomeSeconds);
+  normalized.fastEnergy = Boolean(player.fastEnergy);
+  normalized.energyDelay = normalized.fastEnergy ? 2000 : toNumber(player.energyDelay, DEFAULT_PLAYER.energyDelay);
+  normalized.currentSkin = player.currentSkin || DEFAULT_PLAYER.currentSkin;
+  normalized.maxEnergy = toNumber(player.maxEnergy, DEFAULT_PLAYER.maxEnergy);
+  normalized.energy = toNumber(player.energy, normalized.maxEnergy);
+  normalized.energyUpgradeCount = toNumber(player.energyUpgradeCount, DEFAULT_PLAYER.energyUpgradeCount);
+  normalized.task10kDone = Boolean(player.task10kDone);
+  normalized.taskBuy1UpgradeDone = Boolean(player.taskBuy1UpgradeDone);
+  normalized.taskEmptyEnergyDone = Boolean(player.taskEmptyEnergyDone);
+  normalized.task5000EnergyDone = Boolean(player.task5000EnergyDone);
+  normalized.energyWasZero = Boolean(player.energyWasZero);
+  normalized.lastTime = toNumber(player.lastTime, Date.now());
+
+  if (normalized.maxEnergy < 500) normalized.maxEnergy = 500;
+  if (normalized.maxEnergy > 5000) normalized.maxEnergy = 5000;
+
+  if (normalized.energy < 0) normalized.energy = 0;
+  if (normalized.energy > normalized.maxEnergy) normalized.energy = normalized.maxEnergy;
+
+  if (normalized.clickPower < 1) normalized.clickPower = 1;
+  if (normalized.incomeSeconds < 1) normalized.incomeSeconds = 1;
+  if (normalized.energyUpgradeCount < 0) normalized.energyUpgradeCount = 0;
+  if (normalized.score < 0) normalized.score = 0;
+
+  return normalized;
+}
+
+function playerResponse(player) {
+  const normalized = normalizePlayer(player);
+
+  return {
+    ...normalized,
+
+    // для совместимости со старым index.html
+    coins: normalized.score,
+    click: normalized.clickPower
   };
 }
 
@@ -115,13 +163,12 @@ app.get("/load/:id", (req, res) => {
 
     if (!db[id]) {
       db[id] = { ...DEFAULT_PLAYER };
-      saveDB(db);
-    } else {
-      db[id] = getPlayerWithDefaults(db[id]);
-      saveDB(db);
     }
 
-    return res.json(db[id]);
+    db[id] = normalizePlayer(db[id]);
+    saveDB(db);
+
+    return res.json(playerResponse(db[id]));
   } catch (error) {
     console.log("Ошибка /load:", error);
     return res.status(500).json({ error: "Ошибка загрузки" });
@@ -137,52 +184,31 @@ app.post("/save/:id", (req, res) => {
     }
 
     const db = readDB();
-    const oldPlayer = db[id] || { ...DEFAULT_PLAYER };
+    const oldPlayer = normalizePlayer(db[id] || DEFAULT_PLAYER);
     const newData = req.body || {};
 
-    db[id] = {
+    const merged = {
       ...oldPlayer,
       ...newData,
+
+      // совместимость со старыми именами полей
+      score: newData.score ?? newData.coins ?? oldPlayer.score,
+      clickPower: newData.clickPower ?? newData.click ?? oldPlayer.clickPower,
+      currentSkin: newData.currentSkin ?? oldPlayer.currentSkin,
+      task10kDone: newData.task10kDone ?? oldPlayer.task10kDone,
+      taskBuy1UpgradeDone: newData.taskBuy1UpgradeDone ?? oldPlayer.taskBuy1UpgradeDone,
+      taskEmptyEnergyDone: newData.taskEmptyEnergyDone ?? oldPlayer.taskEmptyEnergyDone,
+      task5000EnergyDone: newData.task5000EnergyDone ?? oldPlayer.task5000EnergyDone,
+      energyWasZero: newData.energyWasZero ?? oldPlayer.energyWasZero,
       lastTime: Date.now()
     };
 
-    if (typeof db[id].score !== "number" || isNaN(db[id].score)) {
-      db[id].score = oldPlayer.score ?? 0;
-    }
-
-    if (typeof db[id].clickPower !== "number" || isNaN(db[id].clickPower)) {
-      db[id].clickPower = oldPlayer.clickPower ?? 1;
-    }
-
-    if (typeof db[id].incomeSeconds !== "number" || isNaN(db[id].incomeSeconds)) {
-      db[id].incomeSeconds = oldPlayer.incomeSeconds ?? 5;
-    }
-
-    if (typeof db[id].energy !== "number" || isNaN(db[id].energy)) {
-      db[id].energy = oldPlayer.energy ?? 500;
-    }
-
-    if (typeof db[id].maxEnergy !== "number" || isNaN(db[id].maxEnergy)) {
-      db[id].maxEnergy = oldPlayer.maxEnergy ?? 500;
-    }
-
-    if (typeof db[id].energyUpgradeCount !== "number" || isNaN(db[id].energyUpgradeCount)) {
-      db[id].energyUpgradeCount = oldPlayer.energyUpgradeCount ?? 0;
-    }
-
-    if (db[id].energy > db[id].maxEnergy) {
-      db[id].energy = db[id].maxEnergy;
-    }
-
-    if (db[id].energy < 0) {
-      db[id].energy = 0;
-    }
-
+    db[id] = normalizePlayer(merged);
     saveDB(db);
 
     return res.json({
       status: "ok",
-      player: db[id]
+      player: playerResponse(db[id])
     });
   } catch (error) {
     console.log("Ошибка /save:", error);
