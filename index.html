@@ -517,6 +517,9 @@ display:block;
         <img src="07897B5D-2EC7-4125-8A56-BCCF888296F3.png" alt="Скин 2">
         <div class="skinName">Скин 2</div>
       </div>
+    </div>
+  </div>
+</div>
 
 <div id="profileScreen">
 <div id="profileBack" onclick="closeProfile()">← Назад</div>
@@ -597,7 +600,6 @@ const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
-const skin3Card = document.getElementById("skin3Card");
 
 function saveGame(){
   localStorage.setItem("score", score);
@@ -627,10 +629,14 @@ function updateSkinUI(){
 
   skin1Card.classList.remove("active");
   skin2Card.classList.remove("active");
-  skin3Card.classList.remove("active");
 
-  if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png") skin1Card.classList.add("active");
-  if(currentSkin === "07897B5D-2EC7-4125-8A56-BCCF888296F3.png") skin2Card.classList.add("active");
+  if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png"){
+    skin1Card.classList.add("active");
+  }
+
+  if(currentSkin === "07897B5D-2EC7-4125-8A56-BCCF888296F3.png"){
+    skin2Card.classList.add("active");
+  }
 }
 
 function setSkin(filename){
