@@ -549,6 +549,8 @@ document.addEventListener("dblclick", function(e){
   e.preventDefault();
 });
 
+const API_BASE = "https://tap-game-oxjs.onrender.com";
+
 const DEFAULT_SKIN = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 const SKIN_2 = "07897B5D-2EC7-4125-8A56-BCCF888296F3.png";
 const MAX_ENERGY_TARGET = 5000;
@@ -639,6 +641,7 @@ function getTelegramPlayerId(){
   try{
     if(window.Telegram && window.Telegram.WebApp){
       const tg = window.Telegram.WebApp;
+      tg.ready();
       tg.expand();
 
       if(tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id){
@@ -657,7 +660,11 @@ function getTelegramPlayerId(){
 
 async function loadFromServer(){
   try{
-    const res = await fetch("/load/" + playerId);
+    const res = await fetch(API_BASE + "/load/" + encodeURIComponent(playerId), {
+      method: "GET",
+      cache: "no-store"
+    });
+
     if(!res.ok) throw new Error("load error");
 
     const data = await res.json();
@@ -739,7 +746,7 @@ async function saveToServer(){
   };
 
   try{
-    await fetch("/save/" + playerId, {
+    await fetch(API_BASE + "/save/" + encodeURIComponent(playerId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
