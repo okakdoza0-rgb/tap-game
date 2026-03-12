@@ -1,7 +1,7 @@
 const express = require("express");
-const fs = require("fs");
 const path = require("path");
 const TelegramBot = require("node-telegram-bot-api");
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,8 +19,14 @@ const bot = new TelegramBot(token, { polling: true });
 let users = new Set();
 const adminId = 7837011810;
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, async (msg) => {
   users.add(msg.from.id);
+
+  try {
+    await getOrCreatePlayer(String(msg.from.id));
+  } catch (error) {
+    console.log("Ошибка создания игрока из /start:", error);
+  }
 
   bot.sendMessage(
     msg.chat.id,
@@ -45,10 +51,15 @@ bot.onText(/\/players/, (msg) => {
 });
 
 /* =========================
-   GAME DATABASE
+   POSTGRES DATABASE
 ========================= */
 
-const DB = path.join(__dirname, "players.json");
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 const DEFAULT_PLAYER = {
   score: 0,
@@ -69,28 +80,6 @@ const DEFAULT_PLAYER = {
   energyWasZero: false,
   lastTime: Date.now()
 };
-
-if (!fs.existsSync(DB)) {
-  fs.writeFileSync(DB, JSON.stringify({}, null, 2), "utf8");
-}
-
-function readDB() {
-  try {
-    const raw = fs.readFileSync(DB, "utf8");
-    return raw ? JSON.parse(raw) : {};
-  } catch (error) {
-    console.log("Ошибка чтения БД:", error);
-    return {};
-  }
-}
-
-function saveDB(data) {
-  try {
-    fs.writeFileSync(DB, JSON.stringify(data, null, 2), "utf8");
-  } catch (error) {
-    console.log("Ошибка сохранения БД:", error);
-  }
-}
 
 function toNumber(value, fallback) {
   const num = Number(value);
@@ -140,18 +129,175 @@ function playerResponse(player) {
 
   return {
     ...normalized,
-
-    // для совместимости со старым index.html
     coins: normalized.score,
     click: normalized.clickPower
   };
+}
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS players (
+      id TEXT PRIMARY KEY,
+      score INTEGER NOT NULL DEFAULT 0,
+      click_power INTEGER NOT NULL DEFAULT 1,
+      bought_click BOOLEAN NOT NULL DEFAULT FALSE,
+      bought_speed BOOLEAN NOT NULL DEFAULT FALSE,
+      income_seconds INTEGER NOT NULL DEFAULT 5,
+      fast_energy BOOLEAN NOT NULL DEFAULT FALSE,
+      energy_delay INTEGER NOT NULL DEFAULT 3000,
+      current_skin TEXT NOT NULL DEFAULT 'FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png',
+      max_energy INTEGER NOT NULL DEFAULT 500,
+      energy INTEGER NOT NULL DEFAULT 500,
+      energy_upgrade_count INTEGER NOT NULL DEFAULT 0,
+      task10k_done BOOLEAN NOT NULL DEFAULT FALSE,
+      task_buy1upgrade_done BOOLEAN NOT NULL DEFAULT FALSE,
+      task_empty_energy_done BOOLEAN NOT NULL DEFAULT FALSE,
+      task5000energy_done BOOLEAN NOT NULL DEFAULT FALSE,
+      energy_was_zero BOOLEAN NOT NULL DEFAULT FALSE,
+      last_time BIGINT NOT NULL DEFAULT 0
+    )
+  `);
+}
+
+function rowToPlayer(row) {
+  return {
+    score: row.score,
+    clickPower: row.click_power,
+    boughtClick: row.bought_click,
+    boughtSpeed: row.bought_speed,
+    incomeSeconds: row.income_seconds,
+    fastEnergy: row.fast_energy,
+    energyDelay: row.energy_delay,
+    currentSkin: row.current_skin,
+    maxEnergy: row.max_energy,
+    energy: row.energy,
+    energyUpgradeCount: row.energy_upgrade_count,
+    task10kDone: row.task10k_done,
+    taskBuy1UpgradeDone: row.task_buy1upgrade_done,
+    taskEmptyEnergyDone: row.task_empty_energy_done,
+    task5000EnergyDone: row.task5000energy_done,
+    energyWasZero: row.energy_was_zero,
+    lastTime: Number(row.last_time)
+  };
+}
+
+async function getPlayer(id) {
+  const result = await pool.query("SELECT * FROM players WHERE id = $1", [id]);
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return rowToPlayer(result.rows[0]);
+}
+
+async function createPlayer(id) {
+  const p = DEFAULT_PLAYER;
+
+  await pool.query(
+    `INSERT INTO players (
+      id, score, click_power, bought_click, bought_speed, income_seconds,
+      fast_energy, energy_delay, current_skin, max_energy, energy,
+      energy_upgrade_count, task10k_done, task_buy1upgrade_done,
+      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+    )
+    ON CONFLICT (id) DO NOTHING`,
+    [
+      id,
+      p.score,
+      p.clickPower,
+      p.boughtClick,
+      p.boughtSpeed,
+      p.incomeSeconds,
+      p.fastEnergy,
+      p.energyDelay,
+      p.currentSkin,
+      p.maxEnergy,
+      p.energy,
+      p.energyUpgradeCount,
+      p.task10kDone,
+      p.taskBuy1UpgradeDone,
+      p.taskEmptyEnergyDone,
+      p.task5000EnergyDone,
+      p.energyWasZero,
+      p.lastTime
+    ]
+  );
+}
+
+async function getOrCreatePlayer(id) {
+  let player = await getPlayer(id);
+
+  if (!player) {
+    await createPlayer(id);
+    player = await getPlayer(id);
+  }
+
+  return normalizePlayer(player || DEFAULT_PLAYER);
+}
+
+async function savePlayer(id, playerData) {
+  const p = normalizePlayer(playerData);
+
+  await pool.query(
+    `INSERT INTO players (
+      id, score, click_power, bought_click, bought_speed, income_seconds,
+      fast_energy, energy_delay, current_skin, max_energy, energy,
+      energy_upgrade_count, task10k_done, task_buy1upgrade_done,
+      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      score = EXCLUDED.score,
+      click_power = EXCLUDED.click_power,
+      bought_click = EXCLUDED.bought_click,
+      bought_speed = EXCLUDED.bought_speed,
+      income_seconds = EXCLUDED.income_seconds,
+      fast_energy = EXCLUDED.fast_energy,
+      energy_delay = EXCLUDED.energy_delay,
+      current_skin = EXCLUDED.current_skin,
+      max_energy = EXCLUDED.max_energy,
+      energy = EXCLUDED.energy,
+      energy_upgrade_count = EXCLUDED.energy_upgrade_count,
+      task10k_done = EXCLUDED.task10k_done,
+      task_buy1upgrade_done = EXCLUDED.task_buy1upgrade_done,
+      task_empty_energy_done = EXCLUDED.task_empty_energy_done,
+      task5000energy_done = EXCLUDED.task5000energy_done,
+      energy_was_zero = EXCLUDED.energy_was_zero,
+      last_time = EXCLUDED.last_time`,
+    [
+      id,
+      p.score,
+      p.clickPower,
+      p.boughtClick,
+      p.boughtSpeed,
+      p.incomeSeconds,
+      p.fastEnergy,
+      p.energyDelay,
+      p.currentSkin,
+      p.maxEnergy,
+      p.energy,
+      p.energyUpgradeCount,
+      p.task10kDone,
+      p.taskBuy1UpgradeDone,
+      p.taskEmptyEnergyDone,
+      p.task5000EnergyDone,
+      p.energyWasZero,
+      Date.now()
+    ]
+  );
+
+  return getOrCreatePlayer(id);
 }
 
 /* =========================
    API
 ========================= */
 
-app.get("/load/:id", (req, res) => {
+app.get("/load/:id", async (req, res) => {
   try {
     const id = String(req.params.id || "").trim();
 
@@ -159,23 +305,15 @@ app.get("/load/:id", (req, res) => {
       return res.status(400).json({ error: "Нет ID игрока" });
     }
 
-    const db = readDB();
-
-    if (!db[id]) {
-      db[id] = { ...DEFAULT_PLAYER };
-    }
-
-    db[id] = normalizePlayer(db[id]);
-    saveDB(db);
-
-    return res.json(playerResponse(db[id]));
+    const player = await getOrCreatePlayer(id);
+    return res.json(playerResponse(player));
   } catch (error) {
     console.log("Ошибка /load:", error);
     return res.status(500).json({ error: "Ошибка загрузки" });
   }
 });
 
-app.post("/save/:id", (req, res) => {
+app.post("/save/:id", async (req, res) => {
   try {
     const id = String(req.params.id || "").trim();
 
@@ -183,15 +321,12 @@ app.post("/save/:id", (req, res) => {
       return res.status(400).json({ error: "Нет ID игрока" });
     }
 
-    const db = readDB();
-    const oldPlayer = normalizePlayer(db[id] || DEFAULT_PLAYER);
+    const oldPlayer = await getOrCreatePlayer(id);
     const newData = req.body || {};
 
     const merged = {
       ...oldPlayer,
       ...newData,
-
-      // совместимость со старыми именами полей
       score: newData.score ?? newData.coins ?? oldPlayer.score,
       clickPower: newData.clickPower ?? newData.click ?? oldPlayer.clickPower,
       currentSkin: newData.currentSkin ?? oldPlayer.currentSkin,
@@ -203,12 +338,11 @@ app.post("/save/:id", (req, res) => {
       lastTime: Date.now()
     };
 
-    db[id] = normalizePlayer(merged);
-    saveDB(db);
+    const savedPlayer = await savePlayer(id, merged);
 
     return res.json({
       status: "ok",
-      player: playerResponse(db[id])
+      player: playerResponse(savedPlayer)
     });
   } catch (error) {
     console.log("Ошибка /save:", error);
@@ -228,6 +362,13 @@ app.get("/", (req, res) => {
    START
 ========================= */
 
-app.listen(PORT, () => {
-  console.log("Server started on port " + PORT);
-});
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log("Server started on port " + PORT);
+    });
+  })
+  .catch((error) => {
+    console.log("Ошибка запуска БД:", error);
+    process.exit(1);
+  });
