@@ -522,17 +522,17 @@ display:block;
 </div>
 
 <div id="profileScreen">
-<div id="profileBack" onclick="closeProfile()">← Назад</div>
+  <div id="profileBack" onclick="closeProfile()">← Назад</div>
 
-<h2 style="margin-top:60px;color:black;">Профиль</h2>
+  <h2 style="margin-top:60px;color:black;">Профиль</h2>
 
-<div class="profileCard">
-<div>🪙 Монеты: <span id="profileCoins">0</span></div>
-<div>⚡ Сила клика: <span id="profileClick">1</span></div>
-<div>⚡ Энергия: <span id="profileEnergy">500</span>/<span id="profileMaxEnergy">500</span></div>
-<div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
-<div>⚡ Реген энергии: <span id="profileEnergyRegen">3</span> сек</div>
-</div>
+  <div class="profileCard">
+    <div>🪙 Монеты: <span id="profileCoins">0</span></div>
+    <div>⚡ Сила клика: <span id="profileClick">1</span></div>
+    <div>⚡ Энергия: <span id="profileEnergy">500</span>/<span id="profileMaxEnergy">500</span></div>
+    <div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
+    <div>⚡ Реген энергии: <span id="profileEnergyRegen">3</span> сек</div>
+  </div>
 </div>
 
 <div id="offlineBox">
@@ -544,43 +544,64 @@ display:block;
 </div>
 
 <script>
-document.addEventListener('dblclick', function(e){
+document.addEventListener("dblclick", function(e){
   e.preventDefault();
 });
 
 const DEFAULT_SKIN = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 const SKIN_2 = "07897B5D-2EC7-4125-8A56-BCCF888296F3.png";
+
 const MAX_ENERGY_TARGET = 5000;
 const ENERGY_STEP = 500;
 const MAX_ENERGY_UPGRADES = 9;
 
-let score = Number(localStorage.getItem("score")) || 0;
-let clickPower = Number(localStorage.getItem("clickPower")) || 1;
-let boughtClick = localStorage.getItem("boughtClick") === "true";
-let boughtSpeed = localStorage.getItem("boughtSpeed") === "true";
-let incomeSeconds = Number(localStorage.getItem("incomeSeconds")) || 5;
+function getNum(key, fallback){
+  const value = localStorage.getItem(key);
+  if(value === null) return fallback;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
 
-let fastEnergy = localStorage.getItem("fastEnergy") === "true";
+function getBool(key){
+  return localStorage.getItem(key) === "true";
+}
+
+let score = getNum("score", 0);
+let clickPower = getNum("clickPower", 1);
+let boughtClick = getBool("boughtClick");
+let boughtSpeed = getBool("boughtSpeed");
+let incomeSeconds = getNum("incomeSeconds", 5);
+
+let fastEnergy = getBool("fastEnergy");
 let energyDelay = fastEnergy ? 2000 : 3000;
 
 let currentSkin = localStorage.getItem("currentSkin") || DEFAULT_SKIN;
 
-let maxEnergy = Number(localStorage.getItem("maxEnergy")) || 500;
-let energy = Number(localStorage.getItem("energy"));
-if(isNaN(energy)) energy = maxEnergy;
+let maxEnergy = getNum("maxEnergy", 500);
 
-let energyUpgradeCount = Number(localStorage.getItem("energyUpgradeCount")) || 0;
+/* ВАЖНО:
+   если игрок новый и energy ещё нет в localStorage,
+   сразу выдаём полную энергию = maxEnergy */
+const savedEnergyRaw = localStorage.getItem("energy");
+let energy = savedEnergyRaw === null ? maxEnergy : Number(savedEnergyRaw);
+if(!Number.isFinite(energy)) energy = maxEnergy;
 
-let task10kDone = localStorage.getItem("task10kDone") === "true";
-let taskBuy1UpgradeDone = localStorage.getItem("taskBuy1UpgradeDone") === "true";
-let taskEmptyEnergyDone = localStorage.getItem("taskEmptyEnergyDone") === "true";
-let task5000EnergyDone = localStorage.getItem("task5000EnergyDone") === "true";
-let energyWasZero = localStorage.getItem("energyWasZero") === "true";
+let energyUpgradeCount = getNum("energyUpgradeCount", 0);
 
-let lastTime = Number(localStorage.getItem("lastTime")) || Date.now();
+let task10kDone = getBool("task10kDone");
+let taskBuy1UpgradeDone = getBool("taskBuy1UpgradeDone");
+let taskEmptyEnergyDone = getBool("taskEmptyEnergyDone");
+let task5000EnergyDone = getBool("task5000EnergyDone");
+let energyWasZero = getBool("energyWasZero");
+
+const savedLastTimeRaw = localStorage.getItem("lastTime");
+let lastTime = savedLastTimeRaw === null ? Date.now() : Number(savedLastTimeRaw);
+if(!Number.isFinite(lastTime)) lastTime = Date.now();
+
 let offlineCoins = 0;
 let incomeInterval = null;
 let energyInterval = null;
+let autosaveInterval = null;
 
 const scoreElement = document.getElementById("scoreNumber");
 const energyElement = document.getElementById("energyNumber");
@@ -614,23 +635,41 @@ const offlineAmount = document.getElementById("offlineAmount");
 const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
 
+function clampGameValues(){
+  if(maxEnergy < 500) maxEnergy = 500;
+  if(maxEnergy > MAX_ENERGY_TARGET) maxEnergy = MAX_ENERGY_TARGET;
+
+  if(energy < 0) energy = 0;
+  if(energy > maxEnergy) energy = maxEnergy;
+
+  if(clickPower < 1) clickPower = 1;
+  if(incomeSeconds < 1) incomeSeconds = 1;
+
+  if(energyUpgradeCount < 0) energyUpgradeCount = 0;
+  if(energyUpgradeCount > MAX_ENERGY_UPGRADES) energyUpgradeCount = MAX_ENERGY_UPGRADES;
+
+  if(score < 0) score = 0;
+}
+
 function saveGame(){
-  localStorage.setItem("score", score);
-  localStorage.setItem("clickPower", clickPower);
-  localStorage.setItem("boughtClick", boughtClick);
-  localStorage.setItem("boughtSpeed", boughtSpeed);
-  localStorage.setItem("incomeSeconds", incomeSeconds);
-  localStorage.setItem("fastEnergy", fastEnergy);
-  localStorage.setItem("energy", energy);
-  localStorage.setItem("maxEnergy", maxEnergy);
-  localStorage.setItem("energyUpgradeCount", energyUpgradeCount);
+  clampGameValues();
+
+  localStorage.setItem("score", String(score));
+  localStorage.setItem("clickPower", String(clickPower));
+  localStorage.setItem("boughtClick", String(boughtClick));
+  localStorage.setItem("boughtSpeed", String(boughtSpeed));
+  localStorage.setItem("incomeSeconds", String(incomeSeconds));
+  localStorage.setItem("fastEnergy", String(fastEnergy));
+  localStorage.setItem("energy", String(energy));
+  localStorage.setItem("maxEnergy", String(maxEnergy));
+  localStorage.setItem("energyUpgradeCount", String(energyUpgradeCount));
   localStorage.setItem("currentSkin", currentSkin);
-  localStorage.setItem("task10kDone", task10kDone);
-  localStorage.setItem("taskBuy1UpgradeDone", taskBuy1UpgradeDone);
-  localStorage.setItem("taskEmptyEnergyDone", taskEmptyEnergyDone);
-  localStorage.setItem("task5000EnergyDone", task5000EnergyDone);
-  localStorage.setItem("energyWasZero", energyWasZero);
-  localStorage.setItem("lastTime", Date.now());
+  localStorage.setItem("task10kDone", String(task10kDone));
+  localStorage.setItem("taskBuy1UpgradeDone", String(taskBuy1UpgradeDone));
+  localStorage.setItem("taskEmptyEnergyDone", String(taskEmptyEnergyDone));
+  localStorage.setItem("task5000EnergyDone", String(task5000EnergyDone));
+  localStorage.setItem("energyWasZero", String(energyWasZero));
+  localStorage.setItem("lastTime", String(Date.now()));
 }
 
 function hasAnyUpgradeBought(){
@@ -721,8 +760,7 @@ function applyDoneStates(){
 }
 
 function updateUI(){
-  if(energy > maxEnergy) energy = maxEnergy;
-  if(maxEnergy > MAX_ENERGY_TARGET) maxEnergy = MAX_ENERGY_TARGET;
+  clampGameValues();
 
   scoreElement.innerText = formatCoins(score);
   energyElement.innerText = energy;
@@ -733,7 +771,7 @@ function updateUI(){
   }
 
   if(!taskBuy1UpgradeDone){
-    claimTaskBuy1UpgradeBtn.disabled = !(hasAnyUpgradeBought());
+    claimTaskBuy1UpgradeBtn.disabled = !hasAnyUpgradeBought();
   }
 
   if(!taskEmptyEnergyDone){
@@ -751,7 +789,7 @@ function updateUI(){
 const now = Date.now();
 const diffMs = now - lastTime;
 
-if(diffMs > 0){
+if(savedLastTimeRaw !== null && diffMs > 0){
   const secondsPassed = Math.floor(diffMs / 1000);
   offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
 
@@ -784,6 +822,14 @@ function startEnergyLoop(){
       saveGame();
     }
   }, energyDelay);
+}
+
+function startAutosaveLoop(){
+  if(autosaveInterval) clearInterval(autosaveInterval);
+
+  autosaveInterval = setInterval(() => {
+    saveGame();
+  }, 10000);
 }
 
 function tap(){
@@ -886,8 +932,8 @@ function buyEnergyUpgrade(){
 
   if(score >= 6500){
     score -= 6500;
-    maxEnergy += ENERGY_STEP;
 
+    maxEnergy += ENERGY_STEP;
     if(maxEnergy > MAX_ENERGY_TARGET){
       maxEnergy = MAX_ENERGY_TARGET;
     }
@@ -994,9 +1040,13 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+window.addEventListener("pagehide", saveGame);
+
 updateUI();
+saveGame();
 startIncomeLoop();
 startEnergyLoop();
+startAutosaveLoop();
 </script>
 
 </body>
