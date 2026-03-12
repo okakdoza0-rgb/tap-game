@@ -518,15 +518,6 @@ display:block;
         <div class="skinName">Скин 2</div>
       </div>
 
-      <div class="skinItem" id="skin3Card" onclick="setSkin('2E9C42A2-0E9C-4670-A170-F4F3353FFF01.png')">
-        <div class="skinSelected">Выбран</div>
-        <img src="2E9C42A2-0E9C-4670-A170-F4F3353FFF01.png" alt="Скин 3">
-        <div class="skinName">Скин 3</div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div id="profileScreen">
 <div id="profileBack" onclick="closeProfile()">← Назад</div>
 
@@ -640,7 +631,6 @@ function updateSkinUI(){
 
   if(currentSkin === "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png") skin1Card.classList.add("active");
   if(currentSkin === "07897B5D-2EC7-4125-8A56-BCCF888296F3.png") skin2Card.classList.add("active");
-  if(currentSkin === "2E9C42A2-0E9C-4670-A170-F4F3353FFF01.png") skin3Card.classList.add("active");
 }
 
 function setSkin(filename){
