@@ -1,12 +1,52 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const TelegramBot = require("node-telegram-bot-api");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.static(__dirname));
+
+/* =========================
+   TELEGRAM BOT
+========================= */
+
+const token = process.env.BOT_TOKEN;
+const bot = new TelegramBot(token, { polling: true });
+
+let users = new Set();
+const adminId = 7837011810;
+
+bot.onText(/\/start/, (msg) => {
+  users.add(msg.from.id);
+
+  bot.sendMessage(
+    msg.chat.id,
+`🎮 Добро пожаловать в *ArTap!*
+
+👆 Тапай по Artemwe  
+🪙 Зарабатывай монеты  
+⚡ Прокачивай силу клика  
+🏆 Стань лучшим игроком  
+
+🚀 Начни играть прямо сейчас!`,
+    {
+      parse_mode: "Markdown"
+    }
+  );
+});
+
+bot.onText(/\/players/, (msg) => {
+  if (msg.from.id === adminId) {
+    bot.sendMessage(msg.chat.id, "👥 Игроков: " + users.size);
+  }
+});
+
+/* =========================
+   GAME DATABASE
+========================= */
 
 const DB = path.join(__dirname, "players.json");
 
@@ -58,6 +98,10 @@ function getPlayerWithDefaults(player = {}) {
     ...player
   };
 }
+
+/* =========================
+   API
+========================= */
 
 app.get("/load/:id", (req, res) => {
   try {
@@ -146,9 +190,17 @@ app.post("/save/:id", (req, res) => {
   }
 });
 
+/* =========================
+   PAGES
+========================= */
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
+
+/* =========================
+   START
+========================= */
 
 app.listen(PORT, () => {
   console.log("Server started on port " + PORT);
