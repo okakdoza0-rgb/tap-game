@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ArTap</title>
 
 <style>
@@ -506,13 +506,13 @@ display:block;
     <div class="screenTitle">Скины</div>
 
     <div class="skinsGrid">
-      <div class="skinItem" id="skin1Card" onclick="setSkin('FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png')">
+      <div class="skinItem" id="skin1Card" onclick="setSkin(DEFAULT_SKIN)">
         <div class="skinSelected">Выбран</div>
         <img src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" alt="Скин 1">
         <div class="skinName">Скин 1</div>
       </div>
 
-      <div class="skinItem" id="skin2Card" onclick="setSkin('07897B5D-2EC7-4125-8A56-BCCF888296F3.png')">
+      <div class="skinItem" id="skin2Card" onclick="setSkin(SKIN_2)">
         <div class="skinSelected">Выбран</div>
         <img src="07897B5D-2EC7-4125-8A56-BCCF888296F3.png" alt="Скин 2">
         <div class="skinName">Скин 2</div>
@@ -543,6 +543,7 @@ display:block;
   </div>
 </div>
 
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 document.addEventListener("dblclick", function(e){
   e.preventDefault();
@@ -550,58 +551,41 @@ document.addEventListener("dblclick", function(e){
 
 const DEFAULT_SKIN = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 const SKIN_2 = "07897B5D-2EC7-4125-8A56-BCCF888296F3.png";
-
 const MAX_ENERGY_TARGET = 5000;
 const ENERGY_STEP = 500;
 const MAX_ENERGY_UPGRADES = 9;
 
-function getNum(key, fallback){
-  const value = localStorage.getItem(key);
-  if(value === null) return fallback;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : fallback;
-}
+let score = 0;
+let clickPower = 1;
+let boughtClick = false;
+let boughtSpeed = false;
+let incomeSeconds = 5;
 
-function getBool(key){
-  return localStorage.getItem(key) === "true";
-}
+let fastEnergy = false;
+let energyDelay = 3000;
 
-let score = getNum("score", 0);
-let clickPower = getNum("clickPower", 1);
-let boughtClick = getBool("boughtClick");
-let boughtSpeed = getBool("boughtSpeed");
-let incomeSeconds = getNum("incomeSeconds", 5);
+let currentSkin = DEFAULT_SKIN;
 
-let fastEnergy = getBool("fastEnergy");
-let energyDelay = fastEnergy ? 2000 : 3000;
+let maxEnergy = 500;
+let energy = 500;
 
-let currentSkin = localStorage.getItem("currentSkin") || DEFAULT_SKIN;
+let energyUpgradeCount = 0;
 
-let maxEnergy = getNum("maxEnergy", 500);
+let task10kDone = false;
+let taskBuy1UpgradeDone = false;
+let taskEmptyEnergyDone = false;
+let task5000EnergyDone = false;
+let energyWasZero = false;
 
-/* ВАЖНО:
-   если игрок новый и energy ещё нет в localStorage,
-   сразу выдаём полную энергию = maxEnergy */
-const savedEnergyRaw = localStorage.getItem("energy");
-let energy = savedEnergyRaw === null ? maxEnergy : Number(savedEnergyRaw);
-if(!Number.isFinite(energy)) energy = maxEnergy;
-
-let energyUpgradeCount = getNum("energyUpgradeCount", 0);
-
-let task10kDone = getBool("task10kDone");
-let taskBuy1UpgradeDone = getBool("taskBuy1UpgradeDone");
-let taskEmptyEnergyDone = getBool("taskEmptyEnergyDone");
-let task5000EnergyDone = getBool("task5000EnergyDone");
-let energyWasZero = getBool("energyWasZero");
-
-const savedLastTimeRaw = localStorage.getItem("lastTime");
-let lastTime = savedLastTimeRaw === null ? Date.now() : Number(savedLastTimeRaw);
-if(!Number.isFinite(lastTime)) lastTime = Date.now();
-
+let lastTime = Date.now();
 let offlineCoins = 0;
 let incomeInterval = null;
 let energyInterval = null;
 let autosaveInterval = null;
+
+let playerId = null;
+let serverReady = false;
+let isLoaded = false;
 
 const scoreElement = document.getElementById("scoreNumber");
 const energyElement = document.getElementById("energyNumber");
@@ -651,25 +635,128 @@ function clampGameValues(){
   if(score < 0) score = 0;
 }
 
-function saveGame(){
+function getTelegramPlayerId(){
+  try{
+    if(window.Telegram && window.Telegram.WebApp){
+      const tg = window.Telegram.WebApp;
+      tg.expand();
+
+      if(tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id){
+        return String(tg.initDataUnsafe.user.id);
+      }
+    }
+  }catch(e){}
+
+  let fallbackId = localStorage.getItem("playerId");
+  if(!fallbackId){
+    fallbackId = "local_" + Math.random().toString(36).slice(2, 12);
+    localStorage.setItem("playerId", fallbackId);
+  }
+  return fallbackId;
+}
+
+async function loadFromServer(){
+  try{
+    const res = await fetch("/load/" + playerId);
+    if(!res.ok) throw new Error("load error");
+
+    const data = await res.json();
+
+    score = Number(data.coins) || 0;
+    energy = Number(data.energy);
+    if(!Number.isFinite(energy)) energy = 500;
+
+    maxEnergy = Number(data.maxEnergy) || 500;
+    clickPower = Number(data.click) || 1;
+
+    boughtClick = !!data.boughtClick;
+    boughtSpeed = !!data.boughtSpeed;
+    incomeSeconds = Number(data.incomeSeconds) || 5;
+
+    fastEnergy = !!data.fastEnergy;
+    energyDelay = fastEnergy ? 2000 : 3000;
+
+    currentSkin = data.currentSkin || DEFAULT_SKIN;
+    energyUpgradeCount = Number(data.energyUpgradeCount) || 0;
+
+    task10kDone = !!data.task10kDone;
+    taskBuy1UpgradeDone = !!data.taskBuy1UpgradeDone;
+    taskEmptyEnergyDone = !!data.taskEmptyEnergyDone;
+    task5000EnergyDone = !!data.task5000EnergyDone;
+    energyWasZero = !!data.energyWasZero;
+
+    lastTime = Number(data.lastTime) || Date.now();
+
+    clampGameValues();
+
+    const now = Date.now();
+    const diffMs = now - lastTime;
+
+    if(diffMs > 0){
+      const secondsPassed = Math.floor(diffMs / 1000);
+      offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
+
+      const restoredEnergy = Math.floor(diffMs / energyDelay);
+      energy = Math.min(maxEnergy, energy + restoredEnergy);
+    }
+
+    if(offlineCoins > 0){
+      offlineAmount.innerText = formatCoins(offlineCoins);
+      offlineBox.style.display = "flex";
+    }
+
+    serverReady = true;
+    isLoaded = true;
+    updateUI();
+  }catch(err){
+    console.log("Ошибка загрузки:", err);
+    alert("Не удалось загрузить прогресс игрока");
+  }
+}
+
+async function saveToServer(){
+  if(!serverReady || !playerId) return;
+
   clampGameValues();
 
-  localStorage.setItem("score", String(score));
-  localStorage.setItem("clickPower", String(clickPower));
-  localStorage.setItem("boughtClick", String(boughtClick));
-  localStorage.setItem("boughtSpeed", String(boughtSpeed));
-  localStorage.setItem("incomeSeconds", String(incomeSeconds));
-  localStorage.setItem("fastEnergy", String(fastEnergy));
-  localStorage.setItem("energy", String(energy));
-  localStorage.setItem("maxEnergy", String(maxEnergy));
-  localStorage.setItem("energyUpgradeCount", String(energyUpgradeCount));
-  localStorage.setItem("currentSkin", currentSkin);
-  localStorage.setItem("task10kDone", String(task10kDone));
-  localStorage.setItem("taskBuy1UpgradeDone", String(taskBuy1UpgradeDone));
-  localStorage.setItem("taskEmptyEnergyDone", String(taskEmptyEnergyDone));
-  localStorage.setItem("task5000EnergyDone", String(task5000EnergyDone));
-  localStorage.setItem("energyWasZero", String(energyWasZero));
-  localStorage.setItem("lastTime", String(Date.now()));
+  const data = {
+    coins: score,
+    energy: energy,
+    maxEnergy: maxEnergy,
+    click: clickPower,
+
+    boughtClick: boughtClick,
+    boughtSpeed: boughtSpeed,
+    incomeSeconds: incomeSeconds,
+
+    fastEnergy: fastEnergy,
+    currentSkin: currentSkin,
+    energyUpgradeCount: energyUpgradeCount,
+
+    task10kDone: task10kDone,
+    taskBuy1UpgradeDone: taskBuy1UpgradeDone,
+    taskEmptyEnergyDone: taskEmptyEnergyDone,
+    task5000EnergyDone: task5000EnergyDone,
+    energyWasZero: energyWasZero,
+
+    lastTime: Date.now()
+  };
+
+  try{
+    await fetch("/save/" + playerId, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+  }catch(err){
+    console.log("Ошибка сохранения:", err);
+  }
+}
+
+function saveGame(){
+  saveToServer();
 }
 
 function hasAnyUpgradeBought(){
@@ -786,26 +873,11 @@ function updateUI(){
   updateSkinUI();
 }
 
-const now = Date.now();
-const diffMs = now - lastTime;
-
-if(savedLastTimeRaw !== null && diffMs > 0){
-  const secondsPassed = Math.floor(diffMs / 1000);
-  offlineCoins = Math.floor(secondsPassed / incomeSeconds) * clickPower;
-
-  const restoredEnergy = Math.floor(diffMs / energyDelay);
-  energy = Math.min(maxEnergy, energy + restoredEnergy);
-}
-
-if(offlineCoins > 0){
-  offlineAmount.innerText = formatCoins(offlineCoins);
-  offlineBox.style.display = "flex";
-}
-
 function startIncomeLoop(){
   if(incomeInterval) clearInterval(incomeInterval);
 
   incomeInterval = setInterval(() => {
+    if(!isLoaded) return;
     score += clickPower;
     updateUI();
     saveGame();
@@ -816,6 +888,7 @@ function startEnergyLoop(){
   if(energyInterval) clearInterval(energyInterval);
 
   energyInterval = setInterval(() => {
+    if(!isLoaded) return;
     if(energy < maxEnergy){
       energy += 1;
       updateUI();
@@ -828,11 +901,14 @@ function startAutosaveLoop(){
   if(autosaveInterval) clearInterval(autosaveInterval);
 
   autosaveInterval = setInterval(() => {
+    if(!isLoaded) return;
     saveGame();
   }, 10000);
 }
 
 function tap(){
+  if(!isLoaded) return;
+
   const energyCost = 1;
 
   if(energy < energyCost){
@@ -897,6 +973,7 @@ function showSkinsTab(){
 }
 
 function buyClickUpgrade(){
+  if(!isLoaded) return;
   if(boughtClick) return;
 
   if(score >= 5000){
@@ -911,6 +988,7 @@ function buyClickUpgrade(){
 }
 
 function buySpeedUpgrade(){
+  if(!isLoaded) return;
   if(boughtSpeed) return;
 
   if(score >= 1500){
@@ -926,6 +1004,7 @@ function buySpeedUpgrade(){
 }
 
 function buyEnergyUpgrade(){
+  if(!isLoaded) return;
   if(energyUpgradeCount >= MAX_ENERGY_UPGRADES || maxEnergy >= MAX_ENERGY_TARGET){
     return;
   }
@@ -953,6 +1032,7 @@ function buyEnergyUpgrade(){
 }
 
 function buyFastEnergy(){
+  if(!isLoaded) return;
   if(fastEnergy) return;
 
   if(score >= 7000){
@@ -968,6 +1048,7 @@ function buyFastEnergy(){
 }
 
 function claimTask10k(){
+  if(!isLoaded) return;
   if(task10kDone || score < 10000) return;
   score += 500;
   task10kDone = true;
@@ -976,6 +1057,7 @@ function claimTask10k(){
 }
 
 function claimTaskBuy1Upgrade(){
+  if(!isLoaded) return;
   if(taskBuy1UpgradeDone || !hasAnyUpgradeBought()) return;
   score += 2000;
   taskBuy1UpgradeDone = true;
@@ -984,6 +1066,7 @@ function claimTaskBuy1Upgrade(){
 }
 
 function claimTaskEmptyEnergy(){
+  if(!isLoaded) return;
   if(taskEmptyEnergyDone || !(energyWasZero || energy === 0)) return;
   score += 2000;
   taskEmptyEnergyDone = true;
@@ -992,6 +1075,7 @@ function claimTaskEmptyEnergy(){
 }
 
 function claimTask5000Energy(){
+  if(!isLoaded) return;
   if(task5000EnergyDone || maxEnergy < MAX_ENERGY_TARGET) return;
   score += 2500;
   task5000EnergyDone = true;
@@ -1000,6 +1084,7 @@ function claimTask5000Energy(){
 }
 
 function claimOffline(){
+  if(!isLoaded) return;
   score += offlineCoins;
   offlineCoins = 0;
   updateUI();
@@ -1033,6 +1118,7 @@ function formatCoins(value){
 }
 
 window.addEventListener("beforeunload", saveGame);
+window.addEventListener("pagehide", saveGame);
 
 document.addEventListener("visibilitychange", () => {
   if(document.hidden){
@@ -1040,13 +1126,15 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-window.addEventListener("pagehide", saveGame);
+async function initGame(){
+  playerId = getTelegramPlayerId();
+  await loadFromServer();
+  startIncomeLoop();
+  startEnergyLoop();
+  startAutosaveLoop();
+}
 
-updateUI();
-saveGame();
-startIncomeLoop();
-startEnergyLoop();
-startAutosaveLoop();
+initGame();
 </script>
 
 </body>
