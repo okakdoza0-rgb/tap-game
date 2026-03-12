@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ArTap</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
 body{
@@ -543,7 +544,6 @@ display:block;
   </div>
 </div>
 
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 document.addEventListener("dblclick", function(e){
   e.preventDefault();
@@ -715,7 +715,7 @@ async function loadFromServer(){
 }
 
 async function saveToServer(){
-  if(!serverReady || !playerId) return;
+  if(!playerId) return;
 
   clampGameValues();
 
@@ -724,21 +724,17 @@ async function saveToServer(){
     energy: energy,
     maxEnergy: maxEnergy,
     click: clickPower,
-
     boughtClick: boughtClick,
     boughtSpeed: boughtSpeed,
     incomeSeconds: incomeSeconds,
-
     fastEnergy: fastEnergy,
     currentSkin: currentSkin,
     energyUpgradeCount: energyUpgradeCount,
-
     task10kDone: task10kDone,
     taskBuy1UpgradeDone: taskBuy1UpgradeDone,
     taskEmptyEnergyDone: taskEmptyEnergyDone,
     task5000EnergyDone: task5000EnergyDone,
     energyWasZero: energyWasZero,
-
     lastTime: Date.now()
   };
 
@@ -756,7 +752,9 @@ async function saveToServer(){
 }
 
 function saveGame(){
-  saveToServer();
+  if(serverReady){
+    saveToServer();
+  }
 }
 
 function hasAnyUpgradeBought(){
