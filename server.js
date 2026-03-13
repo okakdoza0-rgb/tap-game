@@ -28,6 +28,21 @@ function getTelegramNickname(user = {}) {
   return "Игрок";
 }
 
+function getAchievementsText(player) {
+  const achievements = [];
+
+  if (player.task10kDone) achievements.push("✅ Набрал 10K монет");
+  if (player.taskBuy1UpgradeDone) achievements.push("✅ Купил 1 улучшение");
+  if (player.taskEmptyEnergyDone) achievements.push("✅ Потратил всю энергию");
+  if (player.task5000EnergyDone) achievements.push("✅ Дошёл до 5000 энергии");
+
+  if (!achievements.length) {
+    return "Нет выполненных достижений";
+  }
+
+  return achievements.join("\n");
+}
+
 bot.onText(/\/start/, async (msg) => {
   users.add(msg.from.id);
 
@@ -63,7 +78,7 @@ bot.onText(/\/players/, (msg) => {
 
 /* =========================
    ВЫДАЧА МОНЕТ ЧЕРЕЗ БОТА
-   Команда: /give ID СУММА
+   /give ID СУММА
 ========================= */
 
 bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
@@ -111,6 +126,105 @@ bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
   } catch (error) {
     console.log("Ошибка /give:", error);
     bot.sendMessage(msg.chat.id, "❌ Ошибка при начислении монет");
+  }
+});
+
+/* =========================
+   СНЯТИЕ МОНЕТ
+   /take ID СУММА
+========================= */
+
+bot.onText(/\/take\s+(\S+)\s+(\d+)/, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1]).trim();
+    const amount = Math.floor(Number(match[2]));
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return bot.sendMessage(msg.chat.id, "❌ Неверная сумма");
+    }
+
+    const player = await getOrCreatePlayer(playerId);
+    const currentScore = Number(player.score || 0);
+    const newScore = Math.max(0, currentScore - amount);
+
+    const updatedPlayer = {
+      ...player,
+      score: newScore,
+      lastTime: Date.now()
+    };
+
+    const savedPlayer = await savePlayer(playerId, updatedPlayer);
+    const removed = currentScore - newScore;
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `➖ У игрока ${playerId} снято ${removed} монет\n💰 Теперь у него: ${savedPlayer.score} монет`
+    );
+
+    try {
+      if (String(msg.chat.id) !== playerId) {
+        await bot.sendMessage(
+          playerId,
+          `➖ У вас снято ${removed} монет в ArTap`
+        );
+      }
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /take:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при снятии монет");
+  }
+});
+
+/* =========================
+   ПРОСМОТР ПРОФИЛЯ ИГРОКА
+   /profile ID
+========================= */
+
+bot.onText(/\/profile\s+(\S+)/, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1]).trim();
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    const player = await getOrCreatePlayer(playerId);
+
+    const achievementsText = getAchievementsText(player);
+
+    await bot.sendMessage(
+      msg.chat.id,
+`👤 Профиль игрока
+
+🆔 ID: ${playerId}
+📛 Ник: ${player.nickname || "Игрок"}
+
+🪙 Монеты: ${player.score}
+⚡ Сила клика: ${player.clickPower}
+🔋 Энергия: ${player.energy}/${player.maxEnergy}
+⏱ Доход: ${player.clickPower} / ${player.incomeSeconds} сек
+⚡ Реген энергии: ${player.fastEnergy ? 2 : 3} сек
+
+🏆 Достижения:
+${achievementsText}`
+    );
+  } catch (error) {
+    console.log("Ошибка /profile:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при просмотре профиля");
   }
 });
 
