@@ -717,10 +717,12 @@ function clampGameValues(){
   if(energy < 0) energy = 0;
   if(energy > maxEnergy) energy = maxEnergy;
 
-  if(clickPower < 1) clickPower = 1;
-  if(clickPower > 3) clickPower = 3;
   if(clickUpgradeLevel < 0) clickUpgradeLevel = 0;
   if(clickUpgradeLevel > MAX_CLICK_UPGRADES) clickUpgradeLevel = MAX_CLICK_UPGRADES;
+
+  if(clickPower < 1) clickPower = 1;
+  if(clickPower > 3) clickPower = 3;
+
   if(incomeSeconds < 1) incomeSeconds = 1;
 
   if(energyUpgradeCount < 0) energyUpgradeCount = 0;
@@ -788,8 +790,11 @@ async function loadFromServer(){
 
     score = Number(data.score) || 0;
 
-    clickUpgradeLevel = Number(data.clickUpgradeLevel);
-    if(!Number.isFinite(clickUpgradeLevel)){
+    if(Number.isFinite(Number(data.clickUpgradeLevel))){
+      clickUpgradeLevel = Number(data.clickUpgradeLevel);
+    }else if(Number.isFinite(Number(data.clickPower)) && Number(data.clickPower) > 1){
+      clickUpgradeLevel = Number(data.clickPower) - 1;
+    }else{
       clickUpgradeLevel = data.boughtClick ? 1 : 0;
     }
 
@@ -1126,6 +1131,7 @@ function buyClickUpgrade(){
   if(score >= 5000){
     score -= 5000;
     clickUpgradeLevel += 1;
+    if(clickUpgradeLevel > MAX_CLICK_UPGRADES) clickUpgradeLevel = MAX_CLICK_UPGRADES;
     clickPower = 1 + clickUpgradeLevel;
     updateUI();
     saveGame();
