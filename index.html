@@ -533,7 +533,7 @@ padding-bottom:0;
 
     <div id="taskClick" class="whiteCard">
       <div class="whiteCardTitle">⚡ +1 клик</div>
-      <div class="whiteCardText">Теперь будет 2 монеты за тап</div>
+      <div class="whiteCardText">Теперь будет до 3 монет за тап</div>
       <div class="whiteCardPrice">Цена: 5000 🪙</div>
       <button id="buyBtnClick" class="buyBtnWhite" onclick="buyClickUpgrade()">Купить</button>
       <div class="redLine"></div>
@@ -644,10 +644,11 @@ const SKIN_2 = "07897B5D-2EC7-4125-8A56-BCCF888296F3.png";
 const MAX_ENERGY_TARGET = 5000;
 const ENERGY_STEP = 500;
 const MAX_ENERGY_UPGRADES = 9;
+const MAX_CLICK_UPGRADES = 2;
 
 let score = 0;
 let clickPower = 1;
-let boughtClick = false;
+let clickUpgradeLevel = 0;
 let boughtSpeed = false;
 let incomeSeconds = 5;
 
@@ -717,6 +718,9 @@ function clampGameValues(){
   if(energy > maxEnergy) energy = maxEnergy;
 
   if(clickPower < 1) clickPower = 1;
+  if(clickPower > 3) clickPower = 3;
+  if(clickUpgradeLevel < 0) clickUpgradeLevel = 0;
+  if(clickUpgradeLevel > MAX_CLICK_UPGRADES) clickUpgradeLevel = MAX_CLICK_UPGRADES;
   if(incomeSeconds < 1) incomeSeconds = 1;
 
   if(energyUpgradeCount < 0) energyUpgradeCount = 0;
@@ -752,7 +756,8 @@ function getSavePayload(){
   return {
     score: score,
     clickPower: clickPower,
-    boughtClick: boughtClick,
+    clickUpgradeLevel: clickUpgradeLevel,
+    boughtClick: clickUpgradeLevel > 0,
     boughtSpeed: boughtSpeed,
     incomeSeconds: incomeSeconds,
     fastEnergy: fastEnergy,
@@ -782,9 +787,17 @@ async function loadFromServer(){
     const data = await res.json();
 
     score = Number(data.score) || 0;
-    clickPower = Number(data.clickPower) || 1;
 
-    boughtClick = !!data.boughtClick;
+    clickUpgradeLevel = Number(data.clickUpgradeLevel);
+    if(!Number.isFinite(clickUpgradeLevel)){
+      clickUpgradeLevel = data.boughtClick ? 1 : 0;
+    }
+
+    if(clickUpgradeLevel < 0) clickUpgradeLevel = 0;
+    if(clickUpgradeLevel > MAX_CLICK_UPGRADES) clickUpgradeLevel = MAX_CLICK_UPGRADES;
+
+    clickPower = 1 + clickUpgradeLevel;
+
     boughtSpeed = !!data.boughtSpeed;
     incomeSeconds = Number(data.incomeSeconds) || 5;
 
@@ -890,7 +903,7 @@ function saveGame(){
 }
 
 function hasAnyUpgradeBought(){
-  return boughtClick || boughtSpeed || energyUpgradeCount > 0 || fastEnergy;
+  return clickUpgradeLevel > 0 || boughtSpeed || energyUpgradeCount > 0 || fastEnergy;
 }
 
 function updateSkinUI(){
@@ -915,7 +928,7 @@ function setSkin(filename){
 }
 
 function applyDoneStates(){
-  if(boughtClick){
+  if(clickUpgradeLevel >= MAX_CLICK_UPGRADES){
     taskClick.classList.add("done");
     buyBtnClick.disabled = true;
   }else{
@@ -997,6 +1010,12 @@ function updateUI(){
 
   if(!task5000EnergyDone){
     claimTask5000EnergyBtn.disabled = !(maxEnergy >= MAX_ENERGY_TARGET);
+  }
+
+  if(clickUpgradeLevel >= MAX_CLICK_UPGRADES){
+    buyBtnClick.innerText = "Максимум";
+  }else{
+    buyBtnClick.innerText = "Купить";
   }
 
   applyDoneStates();
@@ -1101,12 +1120,13 @@ function showSkinsTab(){
 }
 
 function buyClickUpgrade(){
-  if(!isLoaded || boughtClick) return;
+  if(!isLoaded) return;
+  if(clickUpgradeLevel >= MAX_CLICK_UPGRADES) return;
 
   if(score >= 5000){
     score -= 5000;
-    clickPower = 2;
-    boughtClick = true;
+    clickUpgradeLevel += 1;
+    clickPower = 1 + clickUpgradeLevel;
     updateUI();
     saveGame();
   }else{
