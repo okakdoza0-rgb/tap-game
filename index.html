@@ -850,6 +850,14 @@ function getTelegramPlayerId(){
 function getSavePayload(){
   clampGameValues();
 
+  let nickname = "Игрок";
+  try{
+    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user){
+      const user = window.Telegram.WebApp.initDataUnsafe.user;
+      nickname = user.first_name || user.username || "Игрок";
+    }
+  }catch(e){}
+
   return {
     score: score,
     clickPower: clickPower,
@@ -868,7 +876,8 @@ function getSavePayload(){
     taskEmptyEnergyDone: taskEmptyEnergyDone,
     task5000EnergyDone: task5000EnergyDone,
     energyWasZero: energyWasZero,
-    lastTime: Date.now()
+    lastTime: Date.now(),
+    nickname: nickname
   };
 }
 
@@ -1271,11 +1280,10 @@ async function loadTopPlayers(){
         card.classList.add("topMe");
       }
 
-      let rowName = "Игрок";
+      let rowName = player.nickname || "Игрок";
+
       if(rowId === String(playerId)){
-        rowName = "Вы";
-      }else{
-        rowName = "Игрок " + rowPlace;
+        rowName = player.nickname || "Вы";
       }
 
       card.innerHTML = `
