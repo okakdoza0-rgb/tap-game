@@ -1280,10 +1280,9 @@ async function loadTopPlayers(){
         card.classList.add("topMe");
       }
 
-      let rowName = player.nickname || "Игрок";
-
-      if(rowId === String(playerId)){
-        rowName = player.nickname || "Вы";
+      let rowName = String(player.nickname || "").trim();
+      if(!rowName){
+        rowName = "Игрок";
       }
 
       card.innerHTML = `
