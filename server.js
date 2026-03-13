@@ -77,7 +77,7 @@ bot.onText(/\/players/, (msg) => {
 });
 
 /* =========================
-   ВЫДАЧА МОНЕТ ЧЕРЕЗ БОТА
+   ВЫДАЧА МОНЕТ
    /give ID СУММА
 ========================= */
 
@@ -186,7 +186,7 @@ bot.onText(/\/take\s+(\S+)\s+(\d+)/, async (msg, match) => {
 });
 
 /* =========================
-   ПРОСМОТР ПРОФИЛЯ ИГРОКА
+   ПРОСМОТР ПРОФИЛЯ
    /profile ID
 ========================= */
 
@@ -203,7 +203,6 @@ bot.onText(/\/profile\s+(\S+)/, async (msg, match) => {
     }
 
     const player = await getOrCreatePlayer(playerId);
-
     const achievementsText = getAchievementsText(player);
 
     await bot.sendMessage(
@@ -225,6 +224,52 @@ ${achievementsText}`
   } catch (error) {
     console.log("Ошибка /profile:", error);
     bot.sendMessage(msg.chat.id, "❌ Ошибка при просмотре профиля");
+  }
+});
+
+/* =========================
+   УДАЛЕНИЕ ИГРОКА ИЗ ИГРЫ
+   /deleteplayer ID
+========================= */
+
+bot.onText(/\/deleteplayer\s+(\S+)/, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1]).trim();
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    const deleted = await deletePlayer(playerId);
+
+    if (!deleted) {
+      return bot.sendMessage(msg.chat.id, `❌ Игрок ${playerId} не найден`);
+    }
+
+    users.delete(Number(playerId));
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `🗑 Игрок ${playerId} полностью удалён из игры`
+    );
+
+    try {
+      if (String(msg.chat.id) !== playerId) {
+        await bot.sendMessage(
+          playerId,
+          `🗑 Ваш профиль удалён из ArTap`
+        );
+      }
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /deleteplayer:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при удалении игрока");
   }
 });
 
@@ -489,6 +534,11 @@ async function savePlayer(id, playerData) {
   return getOrCreatePlayer(id);
 }
 
+async function deletePlayer(id) {
+  const result = await pool.query("DELETE FROM players WHERE id = $1", [id]);
+  return result.rowCount > 0;
+}
+
 /* =========================
    API
 ========================= */
@@ -526,7 +576,7 @@ app.post("/save/:id", async (req, res) => {
       score: newData.score ?? newData.coins ?? oldPlayer.score,
       clickPower: newData.clickPower ?? newData.click ?? oldPlayer.clickPower,
       currentSkin: newData.currentSkin ?? oldPlayer.currentSkin,
-      nickname: newData.nickname ?? oldPlayer.nickname,
+      nickname: newData.nickname || oldPlayer.nickname,
       task10kDone: newData.task10kDone ?? oldPlayer.task10kDone,
       taskBuy1UpgradeDone: newData.taskBuy1UpgradeDone ?? oldPlayer.taskBuy1UpgradeDone,
       taskEmptyEnergyDone: newData.taskEmptyEnergyDone ?? oldPlayer.taskEmptyEnergyDone,
