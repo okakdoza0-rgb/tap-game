@@ -274,6 +274,7 @@ color:black;
 z-index:20;
 padding:20px;
 box-sizing:border-box;
+overflow-y:auto;
 }
 
 #profileBack{
@@ -620,6 +621,8 @@ padding-bottom:0;
       <span>⚡ Реген энергии</span>
       <span><span id="profileEnergyRegen">3</span> сек</span>
     </div>
+  </div>
+</div>
 
 <div id="offlineBox">
   <div id="offlineCard">
@@ -701,7 +704,6 @@ const claimTaskBuy1UpgradeBtn = document.getElementById("claimTaskBuy1Upgrade");
 const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
 const claimTask5000EnergyBtn = document.getElementById("claimTask5000Energy");
 
-const offlineBox = document.getElementById("offlineBox");
 const offlineAmount = document.getElementById("offlineAmount");
 
 const skin1Card = document.getElementById("skin1Card");
@@ -820,7 +822,7 @@ async function loadFromServer(){
 
     if(offlineCoins > 0){
       offlineAmount.innerText = formatCoins(offlineCoins);
-      offlineBox.style.display = "flex";
+      document.getElementById("offlineBox").style.display = "flex";
     }
 
     serverReady = true;
@@ -1213,7 +1215,7 @@ function claimOffline(){
   offlineCoins = 0;
   updateUI();
   saveGame();
-  offlineBox.style.display = "none";
+  document.getElementById("offlineBox").style.display = "none";
 }
 
 function openProfile(){
@@ -1227,11 +1229,6 @@ function openProfile(){
     }
   }catch(e){}
 
-  let skinName = "Скин 1";
-  if(currentSkin === SKIN_2){
-    skinName = "Скин 2";
-  }
-
   document.getElementById("profileName").innerText = tgName;
   document.getElementById("profileId").innerText = playerId || "0";
   document.getElementById("profileCoins").innerText = formatCoins(score);
@@ -1241,7 +1238,6 @@ function openProfile(){
   document.getElementById("profileIncome").innerText = clickPower;
   document.getElementById("profileSeconds").innerText = incomeSeconds;
   document.getElementById("profileEnergyRegen").innerText = fastEnergy ? "2" : "3";
-  document.getElementById("profileSkinName").innerText = skinName;
   document.getElementById("profileAvatar").src = currentSkin;
 }
 
