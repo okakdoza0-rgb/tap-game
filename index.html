@@ -394,10 +394,101 @@ padding:6px 10px;
 border-radius:999px;
 display:none;
 }
+  .profileCardBetter{
+width:320px;
+max-width:92%;
+background:linear-gradient(180deg,#f8f9ff 0%, #eef2ff 100%);
+border:1px solid #dfe6ff;
+box-shadow:0 10px 25px rgba(76,111,191,0.10);
+}
+
+.profileTop{
+display:flex;
+align-items:center;
+gap:14px;
+margin-bottom:18px;
+padding-bottom:14px;
+border-bottom:1px solid #dde3f3;
+}
+
+#profileAvatar{
+width:72px;
+height:72px;
+object-fit:contain;
+border-radius:18px;
+background:#ffffff;
+border:1px solid #dfe6ff;
+padding:6px;
+}
+
+.profileTopText{
+display:flex;
+flex-direction:column;
+gap:6px;
+}
+
+.profileNickname{
+font-size:24px;
+font-weight:bold;
+color:#111;
+}
+
+.profilePlayerId{
+font-size:15px;
+color:#666;
+word-break:break-all;
+}
+
+.profileRow{
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:12px;
+padding:10px 0;
+border-bottom:1px solid #e7ebf7;
+font-size:18px;
+}
+
+.profileRow:last-child{
+border-bottom:none;
+padding-bottom:0;
+}
 
 .skinItem.active .skinSelected{
 display:block;
 }
+</style>
+  .skinItem.active .skinSelected{
+display:block;
+}
+
+.profileCardBetter{
+width:320px;
+max-width:92%;
+background:linear-gradient(180deg,#f8f9ff 0%, #eef2ff 100%);
+border:1px solid #dfe6ff;
+box-shadow:0 10px 25px rgba(76,111,191,0.10);
+}
+
+.profileTop{
+display:flex;
+align-items:center;
+gap:14px;
+margin-bottom:18px;
+padding-bottom:14px;
+border-bottom:1px solid #dde3f3;
+}
+
+#profileAvatar{
+width:72px;
+height:72px;
+object-fit:contain;
+border-radius:18px;
+background:#ffffff;
+border:1px solid #dfe6ff;
+padding:6px;
+}
+
 </style>
 </head>
 
@@ -527,12 +618,49 @@ display:block;
 
   <h2 style="margin-top:60px;color:black;">Профиль</h2>
 
-  <div class="profileCard">
-    <div>🪙 Монеты: <span id="profileCoins">0</span></div>
-    <div>⚡ Сила клика: <span id="profileClick">1</span></div>
-    <div>⚡ Энергия: <span id="profileEnergy">500</span>/<span id="profileMaxEnergy">500</span></div>
-    <div>⏱ Доход: <span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</div>
-    <div>⚡ Реген энергии: <span id="profileEnergyRegen">3</span> сек</div>
+  <div id="profileScreen">
+  <div id="profileBack" onclick="closeProfile()">← Назад</div>
+
+  <h2 style="margin-top:60px;color:black;">Профиль</h2>
+
+  <div class="profileCard profileCardBetter">
+    <div class="profileTop">
+      <img id="profileAvatar" src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" alt="avatar">
+      <div class="profileTopText">
+        <div class="profileNickname" id="profileName">Игрок</div>
+        <div class="profilePlayerId">ID: <span id="profileId">0</span></div>
+      </div>
+    </div>
+
+    <div class="profileRow">
+      <span>🪙 Монеты</span>
+      <span id="profileCoins">0</span>
+    </div>
+
+    <div class="profileRow">
+      <span>⚡ Сила клика</span>
+      <span id="profileClick">1</span>
+    </div>
+
+    <div class="profileRow">
+      <span>🔋 Энергия</span>
+      <span><span id="profileEnergy">500</span>/<span id="profileMaxEnergy">500</span></span>
+    </div>
+
+    <div class="profileRow">
+      <span>⏱ Доход</span>
+      <span><span id="profileIncome">1</span> / <span id="profileSeconds">5</span> сек</span>
+    </div>
+
+    <div class="profileRow">
+      <span>⚡ Реген энергии</span>
+      <span><span id="profileEnergyRegen">3</span> сек</span>
+    </div>
+
+    <div class="profileRow">
+      <span>🎭 Скин</span>
+      <span id="profileSkinName">Скин 1</span>
+    </div>
   </div>
 </div>
 
