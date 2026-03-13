@@ -19,11 +19,22 @@ const bot = new TelegramBot(token, { polling: true });
 let users = new Set();
 const adminId = 7837011810;
 
+function getTelegramNickname(user = {}) {
+  const firstName = String(user.first_name || "").trim();
+  const username = String(user.username || "").trim();
+
+  if (firstName) return firstName;
+  if (username) return username;
+  return "Игрок";
+}
+
 bot.onText(/\/start/, async (msg) => {
   users.add(msg.from.id);
 
   try {
-    await getOrCreatePlayer(String(msg.from.id));
+    await getOrCreatePlayer(String(msg.from.id), {
+      nickname: getTelegramNickname(msg.from)
+    });
   } catch (error) {
     console.log("Ошибка создания игрока из /start:", error);
   }
@@ -132,7 +143,8 @@ const DEFAULT_PLAYER = {
   taskEmptyEnergyDone: false,
   task5000EnergyDone: false,
   energyWasZero: false,
-  lastTime: Date.now()
+  lastTime: Date.now(),
+  nickname: "Игрок"
 };
 
 function toNumber(value, fallback) {
@@ -163,6 +175,7 @@ function normalizePlayer(player = {}) {
   normalized.task5000EnergyDone = Boolean(player.task5000EnergyDone);
   normalized.energyWasZero = Boolean(player.energyWasZero);
   normalized.lastTime = toNumber(player.lastTime, Date.now());
+  normalized.nickname = String(player.nickname || DEFAULT_PLAYER.nickname).trim() || "Игрок";
 
   if (normalized.maxEnergy < 500) normalized.maxEnergy = 500;
   if (normalized.maxEnergy > 5000) normalized.maxEnergy = 5000;
@@ -208,8 +221,14 @@ async function initDb() {
       task_empty_energy_done BOOLEAN NOT NULL DEFAULT FALSE,
       task5000energy_done BOOLEAN NOT NULL DEFAULT FALSE,
       energy_was_zero BOOLEAN NOT NULL DEFAULT FALSE,
-      last_time BIGINT NOT NULL DEFAULT 0
+      last_time BIGINT NOT NULL DEFAULT 0,
+      nickname TEXT NOT NULL DEFAULT 'Игрок'
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT 'Игрок'
   `);
 }
 
@@ -231,7 +250,8 @@ function rowToPlayer(row) {
     taskEmptyEnergyDone: row.task_empty_energy_done,
     task5000EnergyDone: row.task5000energy_done,
     energyWasZero: row.energy_was_zero,
-    lastTime: Number(row.last_time)
+    lastTime: Number(row.last_time),
+    nickname: row.nickname
   };
 }
 
@@ -245,17 +265,20 @@ async function getPlayer(id) {
   return rowToPlayer(result.rows[0]);
 }
 
-async function createPlayer(id) {
-  const p = DEFAULT_PLAYER;
+async function createPlayer(id, extra = {}) {
+  const p = {
+    ...DEFAULT_PLAYER,
+    ...extra
+  };
 
   await pool.query(
     `INSERT INTO players (
       id, score, click_power, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task_buy1upgrade_done,
-      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time
+      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
     )
     ON CONFLICT (id) DO NOTHING`,
     [
@@ -276,20 +299,24 @@ async function createPlayer(id) {
       p.taskEmptyEnergyDone,
       p.task5000EnergyDone,
       p.energyWasZero,
-      p.lastTime
+      p.lastTime,
+      p.nickname
     ]
   );
 }
 
-async function getOrCreatePlayer(id) {
+async function getOrCreatePlayer(id, extra = {}) {
   let player = await getPlayer(id);
 
   if (!player) {
-    await createPlayer(id);
+    await createPlayer(id, extra);
     player = await getPlayer(id);
   }
 
-  return normalizePlayer(player || DEFAULT_PLAYER);
+  return normalizePlayer({
+    ...player,
+    ...extra
+  });
 }
 
 async function savePlayer(id, playerData) {
@@ -300,9 +327,9 @@ async function savePlayer(id, playerData) {
       id, score, click_power, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task_buy1upgrade_done,
-      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time
+      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
     )
     ON CONFLICT (id) DO UPDATE SET
       score = EXCLUDED.score,
@@ -321,7 +348,8 @@ async function savePlayer(id, playerData) {
       task_empty_energy_done = EXCLUDED.task_empty_energy_done,
       task5000energy_done = EXCLUDED.task5000energy_done,
       energy_was_zero = EXCLUDED.energy_was_zero,
-      last_time = EXCLUDED.last_time`,
+      last_time = EXCLUDED.last_time,
+      nickname = EXCLUDED.nickname`,
     [
       id,
       p.score,
@@ -340,7 +368,8 @@ async function savePlayer(id, playerData) {
       p.taskEmptyEnergyDone,
       p.task5000EnergyDone,
       p.energyWasZero,
-      Date.now()
+      Date.now(),
+      p.nickname
     ]
   );
 
@@ -384,6 +413,7 @@ app.post("/save/:id", async (req, res) => {
       score: newData.score ?? newData.coins ?? oldPlayer.score,
       clickPower: newData.clickPower ?? newData.click ?? oldPlayer.clickPower,
       currentSkin: newData.currentSkin ?? oldPlayer.currentSkin,
+      nickname: newData.nickname ?? oldPlayer.nickname,
       task10kDone: newData.task10kDone ?? oldPlayer.task10kDone,
       taskBuy1UpgradeDone: newData.taskBuy1UpgradeDone ?? oldPlayer.taskBuy1UpgradeDone,
       taskEmptyEnergyDone: newData.taskEmptyEnergyDone ?? oldPlayer.taskEmptyEnergyDone,
@@ -411,7 +441,7 @@ app.post("/save/:id", async (req, res) => {
 app.get("/top", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, score
+      SELECT id, nickname, score
       FROM players
       ORDER BY score DESC
       LIMIT 50
@@ -420,6 +450,7 @@ app.get("/top", async (req, res) => {
     const top = result.rows.map((row, index) => ({
       place: index + 1,
       id: row.id,
+      nickname: row.nickname || "Игрок",
       score: Number(row.score) || 0
     }));
 
