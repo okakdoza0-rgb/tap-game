@@ -616,8 +616,8 @@ border:2px solid #4c6fbf;
     </div>
 
     <div id="taskAllUpgrades" class="whiteCard">
-      <div class="whiteCardTitle">🏆 Купи все улучшения</div>
-      <div class="whiteCardText">Купи все улучшения в игре</div>
+      <div class="whiteCardTitle">👑 Купи все улучшения</div>
+      <div class="whiteCardText">Купи +1 клик, быстрый доход, +500 энергии до максимума и быструю энергию</div>
       <div class="whiteCardText">Награда: 15000 🪙</div>
       <button id="claimTaskAllUpgrades" class="buyBtnWhite" onclick="claimTaskAllUpgrades()" disabled>Выполнить</button>
       <div class="redLine"></div>
@@ -1032,7 +1032,7 @@ function hasAllUpgradesBought(){
   return (
     clickUpgradeLevel >= MAX_CLICK_UPGRADES &&
     boughtSpeed &&
-    (energyUpgradeCount >= MAX_ENERGY_UPGRADES || maxEnergy >= MAX_ENERGY_TARGET) &&
+    energyUpgradeCount >= MAX_ENERGY_UPGRADES &&
     fastEnergy
   );
 }
@@ -1460,7 +1460,8 @@ function claimTask5000Energy(){
 
 function claimTaskAllUpgrades(){
   if(!isLoaded) return;
-  if(taskAllUpgradesDone || !hasAllUpgradesBought()) return;
+  if(taskAllUpgradesDone) return;
+  if(!hasAllUpgradesBought()) return;
 
   score += 15000;
   taskAllUpgradesDone = true;
