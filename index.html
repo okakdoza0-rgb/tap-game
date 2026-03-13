@@ -394,7 +394,12 @@ padding:6px 10px;
 border-radius:999px;
 display:none;
 }
-  .profileCardBetter{
+
+.skinItem.active .skinSelected{
+display:block;
+}
+
+.profileCardBetter{
 width:320px;
 max-width:92%;
 background:linear-gradient(180deg,#f8f9ff 0%, #eef2ff 100%);
@@ -453,42 +458,6 @@ font-size:18px;
 border-bottom:none;
 padding-bottom:0;
 }
-
-.skinItem.active .skinSelected{
-display:block;
-}
-</style>
-  .skinItem.active .skinSelected{
-display:block;
-}
-
-.profileCardBetter{
-width:320px;
-max-width:92%;
-background:linear-gradient(180deg,#f8f9ff 0%, #eef2ff 100%);
-border:1px solid #dfe6ff;
-box-shadow:0 10px 25px rgba(76,111,191,0.10);
-}
-
-.profileTop{
-display:flex;
-align-items:center;
-gap:14px;
-margin-bottom:18px;
-padding-bottom:14px;
-border-bottom:1px solid #dde3f3;
-}
-
-#profileAvatar{
-width:72px;
-height:72px;
-object-fit:contain;
-border-radius:18px;
-background:#ffffff;
-border:1px solid #dfe6ff;
-padding:6px;
-}
-
 </style>
 </head>
 
@@ -614,11 +583,6 @@ padding:6px;
 </div>
 
 <div id="profileScreen">
-  <div id="profileBack" onclick="closeProfile()">← Назад</div>
-
-  <h2 style="margin-top:60px;color:black;">Профиль</h2>
-
-  <div id="profileScreen">
   <div id="profileBack" onclick="closeProfile()">← Назад</div>
 
   <h2 style="margin-top:60px;color:black;">Профиль</h2>
@@ -1261,6 +1225,22 @@ function claimOffline(){
 
 function openProfile(){
   document.getElementById("profileScreen").style.display = "flex";
+
+  let tgName = "Игрок";
+  try{
+    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user){
+      const user = window.Telegram.WebApp.initDataUnsafe.user;
+      tgName = user.first_name || user.username || "Игрок";
+    }
+  }catch(e){}
+
+  let skinName = "Скин 1";
+  if(currentSkin === SKIN_2){
+    skinName = "Скин 2";
+  }
+
+  document.getElementById("profileName").innerText = tgName;
+  document.getElementById("profileId").innerText = playerId || "0";
   document.getElementById("profileCoins").innerText = formatCoins(score);
   document.getElementById("profileClick").innerText = clickPower;
   document.getElementById("profileEnergy").innerText = energy;
@@ -1268,6 +1248,8 @@ function openProfile(){
   document.getElementById("profileIncome").innerText = clickPower;
   document.getElementById("profileSeconds").innerText = incomeSeconds;
   document.getElementById("profileEnergyRegen").innerText = fastEnergy ? "2" : "3";
+  document.getElementById("profileSkinName").innerText = skinName;
+  document.getElementById("profileAvatar").src = currentSkin;
 }
 
 function closeProfile(){
