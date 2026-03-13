@@ -405,6 +405,32 @@ app.post("/save/:id", async (req, res) => {
 });
 
 /* =========================
+   TOP 50 PLAYERS
+========================= */
+
+app.get("/top", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, score
+      FROM players
+      ORDER BY score DESC
+      LIMIT 50
+    `);
+
+    const top = result.rows.map((row, index) => ({
+      place: index + 1,
+      id: row.id,
+      score: Number(row.score) || 0
+    }));
+
+    return res.json(top);
+  } catch (error) {
+    console.log("Ошибка /top:", error);
+    return res.status(500).json({ error: "Ошибка получения топа" });
+  }
+});
+
+/* =========================
    PAGES
 ========================= */
 
