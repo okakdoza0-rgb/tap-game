@@ -499,15 +499,28 @@ app.post("/save/:id", async(req,res)=>{
 
 const id = String(req.params.id);
 
+try{
+
 const oldPlayer = await getOrCreatePlayer(id);
 
 const newData = req.body || {};
 
-const merged = {...oldPlayer,...newData};
+const merged = normalizePlayer({
+  ...oldPlayer,
+  ...newData
+});
 
 const saved = await savePlayer(id,merged);
 
 res.json({status:"ok",player:saved});
+
+}catch(err){
+
+console.log("SAVE ERROR:",err);
+
+res.status(500).json({error:"save error"});
+
+}
 
 });
 
