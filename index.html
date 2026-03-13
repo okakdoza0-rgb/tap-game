@@ -168,7 +168,8 @@ font-weight:bold;
 
 #upgradesContent,
 #tasksContent,
-#skinsContent{
+#skinsContent,
+#topContent{
 width:100%;
 box-sizing:border-box;
 padding:22px 18px 30px;
@@ -459,6 +460,92 @@ font-size:18px;
 border-bottom:none;
 padding-bottom:0;
 }
+
+.topListWrap{
+display:flex;
+flex-direction:column;
+gap:12px;
+}
+
+.topPlayerCard{
+display:flex;
+align-items:center;
+justify-content:space-between;
+gap:12px;
+background:#fff;
+border:1px solid #e8e8e8;
+border-radius:20px;
+padding:16px 18px;
+box-shadow:0 1px 0 rgba(0,0,0,0.02);
+}
+
+.topLeft{
+display:flex;
+align-items:center;
+gap:14px;
+min-width:0;
+}
+
+.topPlace{
+width:42px;
+height:42px;
+border-radius:50%;
+background:#eef0f7;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:18px;
+font-weight:bold;
+color:#4c6fbf;
+flex-shrink:0;
+}
+
+.topInfo{
+display:flex;
+flex-direction:column;
+gap:4px;
+min-width:0;
+}
+
+.topName{
+font-size:18px;
+font-weight:bold;
+color:#111;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+max-width:170px;
+}
+
+.topId{
+font-size:13px;
+color:#777;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+max-width:170px;
+}
+
+.topCoins{
+font-size:20px;
+font-weight:bold;
+color:#111;
+flex-shrink:0;
+}
+
+.topEmpty{
+background:#fff;
+border:1px solid #e8e8e8;
+border-radius:22px;
+padding:24px 18px;
+text-align:center;
+font-size:18px;
+color:#666;
+}
+
+.topMe{
+border:2px solid #4c6fbf;
+}
 </style>
 </head>
 
@@ -492,6 +579,7 @@ padding-bottom:0;
     <div id="tasksTab" class="topTab" onclick="showTasksTab()">Задания</div>
     <div id="upgradesTab" class="topTab active" onclick="showUpgradesTab()">Улучшения</div>
     <div id="skinsTab" class="topTab" onclick="showSkinsTab()">Скины</div>
+    <div id="topTab" class="topTab" onclick="showTopTab()">🏆 Топ</div>
   </div>
 
   <div id="tasksContent" style="display:none;">
@@ -579,6 +667,13 @@ padding-bottom:0;
         <img src="07897B5D-2EC7-4125-8A56-BCCF888296F3.png" alt="Скин 2">
         <div class="skinName">Скин 2</div>
       </div>
+    </div>
+  </div>
+
+  <div id="topContent" style="display:none;">
+    <div class="screenTitle">🏆 Топ игроков</div>
+    <div id="topList" class="topListWrap">
+      <div class="topEmpty">Загрузка...</div>
     </div>
   </div>
 </div>
@@ -1101,27 +1196,115 @@ function showTasksTab(){
   document.getElementById("tasksContent").style.display = "block";
   document.getElementById("upgradesContent").style.display = "none";
   document.getElementById("skinsContent").style.display = "none";
+  document.getElementById("topContent").style.display = "none";
   document.getElementById("tasksTab").classList.add("active");
   document.getElementById("upgradesTab").classList.remove("active");
   document.getElementById("skinsTab").classList.remove("active");
+  document.getElementById("topTab").classList.remove("active");
 }
 
 function showUpgradesTab(){
   document.getElementById("tasksContent").style.display = "none";
   document.getElementById("upgradesContent").style.display = "block";
   document.getElementById("skinsContent").style.display = "none";
+  document.getElementById("topContent").style.display = "none";
   document.getElementById("tasksTab").classList.remove("active");
   document.getElementById("upgradesTab").classList.add("active");
   document.getElementById("skinsTab").classList.remove("active");
+  document.getElementById("topTab").classList.remove("active");
 }
 
 function showSkinsTab(){
   document.getElementById("tasksContent").style.display = "none";
   document.getElementById("upgradesContent").style.display = "none";
   document.getElementById("skinsContent").style.display = "block";
+  document.getElementById("topContent").style.display = "none";
   document.getElementById("tasksTab").classList.remove("active");
   document.getElementById("upgradesTab").classList.remove("active");
   document.getElementById("skinsTab").classList.add("active");
+  document.getElementById("topTab").classList.remove("active");
+}
+
+async function showTopTab(){
+  document.getElementById("tasksContent").style.display = "none";
+  document.getElementById("upgradesContent").style.display = "none";
+  document.getElementById("skinsContent").style.display = "none";
+  document.getElementById("topContent").style.display = "block";
+  document.getElementById("tasksTab").classList.remove("active");
+  document.getElementById("upgradesTab").classList.remove("active");
+  document.getElementById("skinsTab").classList.remove("active");
+  document.getElementById("topTab").classList.add("active");
+  await loadTopPlayers();
+}
+
+async function loadTopPlayers(){
+  const topList = document.getElementById("topList");
+  topList.innerHTML = '<div class="topEmpty">Загрузка...</div>';
+
+  try{
+    const res = await fetch(API_BASE + "/top", {
+      method: "GET",
+      cache: "no-store"
+    });
+
+    if(!res.ok) throw new Error("top error");
+
+    const data = await res.json();
+    const players = Array.isArray(data) ? data : (Array.isArray(data.players) ? data.players : []);
+
+    if(players.length === 0){
+      topList.innerHTML = '<div class="topEmpty">Пока игроков нет</div>';
+      return;
+    }
+
+    topList.innerHTML = "";
+
+    players.forEach((player, index) => {
+      const card = document.createElement("div");
+      card.className = "topPlayerCard";
+
+      const rowId = String(player.id || "0");
+      const rowPlace = Number(player.place) || (index + 1);
+      const rowScore = Number(player.score) || 0;
+
+      if(rowId === String(playerId)){
+        card.classList.add("topMe");
+      }
+
+      let rowName = "Игрок";
+      if(rowId === String(playerId)){
+        rowName = "Вы";
+      }else{
+        rowName = "Игрок " + rowPlace;
+      }
+
+      card.innerHTML = `
+        <div class="topLeft">
+          <div class="topPlace">${rowPlace}</div>
+          <div class="topInfo">
+            <div class="topName">${escapeHtml(rowName)}</div>
+            <div class="topId">ID: ${escapeHtml(rowId)}</div>
+          </div>
+        </div>
+        <div class="topCoins">${formatCoins(rowScore)}</div>
+      `;
+
+      topList.appendChild(card);
+    });
+
+  }catch(err){
+    console.log("Ошибка топа:", err);
+    topList.innerHTML = '<div class="topEmpty">Не удалось загрузить топ</div>';
+  }
+}
+
+function escapeHtml(text){
+  return String(text)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function buyClickUpgrade(){
