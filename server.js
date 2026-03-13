@@ -51,6 +51,60 @@ bot.onText(/\/players/, (msg) => {
 });
 
 /* =========================
+   ВЫДАЧА МОНЕТ ЧЕРЕЗ БОТА
+   Команда: /give ID СУММА
+   Пример: /give 7837011810 10000
+========================= */
+
+bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1]).trim();
+    const amount = Math.floor(Number(match[2]));
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return bot.sendMessage(msg.chat.id, "❌ Неверная сумма");
+    }
+
+    const player = await getOrCreatePlayer(playerId);
+
+    const updatedPlayer = {
+      ...player,
+      score: Number(player.score || 0) + amount,
+      lastTime: Date.now()
+    };
+
+    const savedPlayer = await savePlayer(playerId, updatedPlayer);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `✅ Игроку ${playerId} начислено ${amount} монет\n💰 Теперь у него: ${savedPlayer.score} монет`
+    );
+
+    try {
+      if (String(msg.chat.id) !== playerId) {
+        await bot.sendMessage(
+          playerId,
+          `🎁 Вам начислено ${amount} монет в ArTap!`
+        );
+      }
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /give:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при начислении монет");
+  }
+});
+
+/* =========================
    POSTGRES DATABASE
 ========================= */
 
