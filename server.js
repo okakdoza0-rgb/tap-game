@@ -64,7 +64,6 @@ bot.onText(/\/players/, (msg) => {
 /* =========================
    ВЫДАЧА МОНЕТ ЧЕРЕЗ БОТА
    Команда: /give ID СУММА
-   Пример: /give 7837011810 10000
 ========================= */
 
 bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
@@ -443,6 +442,11 @@ app.get("/top", async (req, res) => {
     const result = await pool.query(`
       SELECT id, nickname, score
       FROM players
+      WHERE
+        nickname IS NOT NULL
+        AND TRIM(nickname) <> ''
+        AND nickname <> 'Игрок'
+        AND id NOT LIKE 'local_%'
       ORDER BY score DESC
       LIMIT 50
     `);
