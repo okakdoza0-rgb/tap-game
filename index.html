@@ -719,6 +719,13 @@ text-align:center;
       <div class="redLine"></div>
     </div>
 
+    <div id="task1m" class="whiteCard">
+      <div class="whiteCardTitle">💎 Набери 1M монет</div>
+      <div class="whiteCardText">Награда: 100000 🪙</div>
+      <button id="claimTask1m" class="buyBtnWhite" onclick="claimTask1m()" disabled>Выполнить</button>
+      <div class="redLine"></div>
+    </div>
+
     <div id="taskBuy1Upgrade" class="whiteCard">
       <div class="whiteCardTitle">🛒 Купи 1 улучшение</div>
       <div class="whiteCardText">Награда: 2000 🪙</div>
@@ -924,6 +931,7 @@ let energy = 500;
 let energyUpgradeCount = 0;
 
 let task10kDone = false;
+let task1mDone = false;
 let taskBuy1UpgradeDone = false;
 let taskEmptyEnergyDone = false;
 let task5000EnergyDone = false;
@@ -953,6 +961,7 @@ const taskEnergy = document.getElementById("taskEnergy");
 const taskFastEnergy = document.getElementById("taskFastEnergy");
 
 const task10k = document.getElementById("task10k");
+const task1m = document.getElementById("task1m");
 const taskBuy1Upgrade = document.getElementById("taskBuy1Upgrade");
 const taskEmptyEnergy = document.getElementById("taskEmptyEnergy");
 const task5000Energy = document.getElementById("task5000Energy");
@@ -963,6 +972,7 @@ const buyBtnEnergy = document.getElementById("buyBtnEnergy");
 const buyBtnFastEnergy = document.getElementById("buyBtnFastEnergy");
 
 const claimTask10kBtn = document.getElementById("claimTask10k");
+const claimTask1mBtn = document.getElementById("claimTask1m");
 const claimTaskBuy1UpgradeBtn = document.getElementById("claimTaskBuy1Upgrade");
 const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
 const claimTask5000EnergyBtn = document.getElementById("claimTask5000Energy");
@@ -1122,6 +1132,7 @@ function getSavePayload(){
     energy: energy,
     energyUpgradeCount: energyUpgradeCount,
     task10kDone: task10kDone,
+    task1mDone: task1mDone,
     taskBuy1UpgradeDone: taskBuy1UpgradeDone,
     taskEmptyEnergyDone: taskEmptyEnergyDone,
     task5000EnergyDone: task5000EnergyDone,
@@ -1173,6 +1184,7 @@ async function loadFromServer(){
     energyUpgradeCount = Number(data.energyUpgradeCount) || 0;
 
     task10kDone = !!data.task10kDone;
+    task1mDone = !!data.task1mDone;
     taskBuy1UpgradeDone = !!data.taskBuy1UpgradeDone;
     taskEmptyEnergyDone = !!data.taskEmptyEnergyDone;
     task5000EnergyDone = !!data.task5000EnergyDone;
@@ -1328,6 +1340,13 @@ function applyDoneStates(){
     task10k.classList.remove("done");
   }
 
+  if(task1mDone){
+    task1m.classList.add("done");
+    claimTask1mBtn.disabled = true;
+  }else{
+    task1m.classList.remove("done");
+  }
+
   if(taskBuy1UpgradeDone){
     taskBuy1Upgrade.classList.add("done");
     claimTaskBuy1UpgradeBtn.disabled = true;
@@ -1359,6 +1378,10 @@ function updateUI(){
 
   if(!task10kDone){
     claimTask10kBtn.disabled = !(score >= 10000);
+  }
+
+  if(!task1mDone){
+    claimTask1mBtn.disabled = !(score >= 1000000);
   }
 
   if(!taskBuy1UpgradeDone){
@@ -1666,6 +1689,16 @@ function claimTask10k(){
 
   score += 500;
   task10kDone = true;
+  updateUI();
+  saveGame();
+}
+
+function claimTask1m(){
+  if(!isLoaded) return;
+  if(task1mDone || score < 1000000) return;
+
+  score += 100000;
+  task1mDone = true;
   updateUI();
   saveGame();
 }
