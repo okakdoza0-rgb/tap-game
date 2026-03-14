@@ -169,6 +169,7 @@ font-weight:bold;
 #upgradesContent,
 #tasksContent,
 #skinsContent,
+#refsContent,
 #topContent{
 width:100%;
 box-sizing:border-box;
@@ -546,6 +547,131 @@ color:#666;
 .topMe{
 border:2px solid #4c6fbf;
 }
+
+.refCard{
+background:linear-gradient(180deg,#f8f9ff 0%, #eef2ff 100%);
+border:1px solid #dfe6ff;
+border-radius:28px;
+padding:22px 18px;
+box-shadow:0 10px 25px rgba(76,111,191,0.10);
+margin-bottom:18px;
+}
+
+.refTitle{
+font-size:28px;
+font-weight:bold;
+text-align:center;
+margin-bottom:12px;
+color:#111;
+}
+
+.refSub{
+font-size:18px;
+text-align:center;
+line-height:1.4;
+color:#333;
+margin-bottom:16px;
+}
+
+.refReward{
+background:#ffffff;
+border:1px solid #e6ebff;
+border-radius:22px;
+padding:16px;
+text-align:center;
+font-size:24px;
+font-weight:bold;
+color:#4c6fbf;
+margin-bottom:16px;
+}
+
+.refMiniStats{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:12px;
+margin-bottom:16px;
+}
+
+.refStat{
+background:#fff;
+border:1px solid #e8e8e8;
+border-radius:20px;
+padding:16px 12px;
+text-align:center;
+}
+
+.refStatTop{
+font-size:14px;
+color:#666;
+margin-bottom:8px;
+}
+
+.refStatValue{
+font-size:24px;
+font-weight:bold;
+color:#111;
+word-break:break-word;
+}
+
+.refLinkBox{
+background:#fff;
+border:1px solid #dfe6ff;
+border-radius:20px;
+padding:14px;
+font-size:15px;
+line-height:1.5;
+color:#222;
+word-break:break-all;
+margin-bottom:16px;
+}
+
+.refActions{
+display:flex;
+flex-direction:column;
+gap:12px;
+}
+
+.refBtn{
+width:100%;
+padding:16px 18px;
+border:none;
+border-radius:18px;
+font-size:18px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.refBtnPrimary{
+background:#4c6fbf;
+color:#fff;
+}
+
+.refBtnSecondary{
+background:#eef0f5;
+color:#111;
+}
+
+.refHow{
+background:#fff;
+border:1px solid #e8e8e8;
+border-radius:24px;
+padding:18px;
+}
+
+.refHowTitle{
+font-size:22px;
+font-weight:bold;
+text-align:center;
+margin-bottom:12px;
+color:#111;
+}
+
+.refHowText{
+font-size:17px;
+line-height:1.5;
+color:#333;
+text-align:center;
+}
 </style>
 </head>
 
@@ -579,6 +705,7 @@ border:2px solid #4c6fbf;
     <div id="tasksTab" class="topTab" onclick="showTasksTab()">Задания</div>
     <div id="upgradesTab" class="topTab active" onclick="showUpgradesTab()">Улучшения</div>
     <div id="skinsTab" class="topTab" onclick="showSkinsTab()">Скины</div>
+    <div id="refsTab" class="topTab" onclick="showRefsTab()">👥 Рефералы</div>
     <div id="topTab" class="topTab" onclick="showTopTab()">🏆 Топ</div>
   </div>
 
@@ -670,6 +797,44 @@ border:2px solid #4c6fbf;
     </div>
   </div>
 
+  <div id="refsContent" style="display:none;">
+    <div class="screenTitle">👥 Рефералы</div>
+
+    <div class="refCard">
+      <div class="refTitle">Приглашай друзей</div>
+      <div class="refSub">За каждого нового игрока по твоей ссылке ты получаешь награду</div>
+
+      <div class="refReward">🎁 1500 монет за 1 игрока</div>
+
+      <div class="refMiniStats">
+        <div class="refStat">
+          <div class="refStatTop">Приглашено</div>
+          <div class="refStatValue" id="referralsCount">0</div>
+        </div>
+
+        <div class="refStat">
+          <div class="refStatTop">Твой бонус</div>
+          <div class="refStatValue">1500</div>
+        </div>
+      </div>
+
+      <div class="refLinkBox" id="refLinkBox">Ссылка загружается...</div>
+
+      <div class="refActions">
+        <button class="refBtn refBtnPrimary" onclick="copyReferralLink()">📋 Копировать ссылку</button>
+        <button class="refBtn refBtnSecondary" onclick="shareReferralLink()">🚀 Поделиться</button>
+      </div>
+    </div>
+
+    <div class="refHow">
+      <div class="refHowTitle">Как это работает</div>
+      <div class="refHowText">
+        Отправь другу свою ссылку.<br>
+        Когда он впервые зайдёт через неё в бота, тебе автоматически начислится <b>1500 монет</b>.
+      </div>
+    </div>
+  </div>
+
   <div id="topContent" style="display:none;">
     <div class="screenTitle">🏆 Топ игроков</div>
     <div id="topList" class="topListWrap">
@@ -733,6 +898,7 @@ document.addEventListener("dblclick", function(e){
 });
 
 const API_BASE = "https://tap-game-oxjs.onrender.com";
+const BOT_USERNAME = "ArTapclicker_bot";
 
 const DEFAULT_SKIN = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 const SKIN_2 = "07897B5D-2EC7-4125-8A56-BCCF888296F3.png";
@@ -773,6 +939,7 @@ let playerId = null;
 let serverReady = false;
 let isLoaded = false;
 let isSaving = false;
+let referralsCount = 0;
 
 const scoreElement = document.getElementById("scoreNumber");
 const energyElement = document.getElementById("energyNumber");
@@ -824,6 +991,7 @@ function clampGameValues(){
   if(energyUpgradeCount > MAX_ENERGY_UPGRADES) energyUpgradeCount = MAX_ENERGY_UPGRADES;
 
   if(score < 0) score = 0;
+  if(referralsCount < 0) referralsCount = 0;
 }
 
 function getTelegramPlayerId(){
@@ -845,6 +1013,88 @@ function getTelegramPlayerId(){
     localStorage.setItem("playerId", fallbackId);
   }
   return fallbackId;
+}
+
+function getReferralLink(){
+  if(!playerId) return "";
+  return `https://t.me/${BOT_USERNAME}?start=ref_${playerId}`;
+}
+
+function updateReferralUI(){
+  const referralsCountEl = document.getElementById("referralsCount");
+  const refLinkBox = document.getElementById("refLinkBox");
+
+  if(referralsCountEl){
+    referralsCountEl.innerText = referralsCount || 0;
+  }
+
+  if(refLinkBox){
+    refLinkBox.innerText = getReferralLink() || "Ссылка недоступна";
+  }
+}
+
+async function copyReferralLink(){
+  const link = getReferralLink();
+
+  if(!link){
+    alert("Не удалось создать ссылку");
+    return;
+  }
+
+  try{
+    await navigator.clipboard.writeText(link);
+    alert("Ссылка скопирована");
+    return;
+  }catch(e){}
+
+  try{
+    const input = document.createElement("textarea");
+    input.value = link;
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    document.body.removeChild(input);
+    alert("Ссылка скопирована");
+  }catch(err){
+    alert("Не удалось скопировать ссылку");
+  }
+}
+
+function shareReferralLink(){
+  const link = getReferralLink();
+
+  if(!link){
+    alert("Не удалось создать ссылку");
+    return;
+  }
+
+  const text = `🎮 Заходи в ArTap по моей ссылке!
+🎁 Я получу 1500 монет за приглашение
+${link}`;
+
+  try{
+    if(navigator.share){
+      navigator.share({
+        title: "ArTap",
+        text: text
+      });
+      return;
+    }
+  }catch(e){}
+
+  try{
+    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink){
+      const shareUrl =
+        "https://t.me/share/url?url=" +
+        encodeURIComponent(link) +
+        "&text=" +
+        encodeURIComponent("🎮 Заходи в ArTap по моей ссылке!\n🎁 Я получу 1500 монет за приглашение");
+      window.Telegram.WebApp.openTelegramLink(shareUrl);
+      return;
+    }
+  }catch(e){}
+
+  copyReferralLink();
 }
 
 function getSavePayload(){
@@ -877,7 +1127,8 @@ function getSavePayload(){
     task5000EnergyDone: task5000EnergyDone,
     energyWasZero: energyWasZero,
     lastTime: Date.now(),
-    nickname: nickname
+    nickname: nickname,
+    referralsCount: referralsCount
   };
 }
 
@@ -926,6 +1177,7 @@ async function loadFromServer(){
     taskEmptyEnergyDone = !!data.taskEmptyEnergyDone;
     task5000EnergyDone = !!data.task5000EnergyDone;
     energyWasZero = !!data.energyWasZero;
+    referralsCount = Number(data.referralsCount) || 0;
 
     lastTime = Number(data.lastTime) || Date.now();
 
@@ -1129,6 +1381,7 @@ function updateUI(){
 
   applyDoneStates();
   updateSkinUI();
+  updateReferralUI();
 }
 
 function startIncomeLoop(){
@@ -1205,10 +1458,12 @@ function showTasksTab(){
   document.getElementById("tasksContent").style.display = "block";
   document.getElementById("upgradesContent").style.display = "none";
   document.getElementById("skinsContent").style.display = "none";
+  document.getElementById("refsContent").style.display = "none";
   document.getElementById("topContent").style.display = "none";
   document.getElementById("tasksTab").classList.add("active");
   document.getElementById("upgradesTab").classList.remove("active");
   document.getElementById("skinsTab").classList.remove("active");
+  document.getElementById("refsTab").classList.remove("active");
   document.getElementById("topTab").classList.remove("active");
 }
 
@@ -1216,10 +1471,12 @@ function showUpgradesTab(){
   document.getElementById("tasksContent").style.display = "none";
   document.getElementById("upgradesContent").style.display = "block";
   document.getElementById("skinsContent").style.display = "none";
+  document.getElementById("refsContent").style.display = "none";
   document.getElementById("topContent").style.display = "none";
   document.getElementById("tasksTab").classList.remove("active");
   document.getElementById("upgradesTab").classList.add("active");
   document.getElementById("skinsTab").classList.remove("active");
+  document.getElementById("refsTab").classList.remove("active");
   document.getElementById("topTab").classList.remove("active");
 }
 
@@ -1227,21 +1484,39 @@ function showSkinsTab(){
   document.getElementById("tasksContent").style.display = "none";
   document.getElementById("upgradesContent").style.display = "none";
   document.getElementById("skinsContent").style.display = "block";
+  document.getElementById("refsContent").style.display = "none";
   document.getElementById("topContent").style.display = "none";
   document.getElementById("tasksTab").classList.remove("active");
   document.getElementById("upgradesTab").classList.remove("active");
   document.getElementById("skinsTab").classList.add("active");
+  document.getElementById("refsTab").classList.remove("active");
   document.getElementById("topTab").classList.remove("active");
+}
+
+function showRefsTab(){
+  document.getElementById("tasksContent").style.display = "none";
+  document.getElementById("upgradesContent").style.display = "none";
+  document.getElementById("skinsContent").style.display = "none";
+  document.getElementById("refsContent").style.display = "block";
+  document.getElementById("topContent").style.display = "none";
+  document.getElementById("tasksTab").classList.remove("active");
+  document.getElementById("upgradesTab").classList.remove("active");
+  document.getElementById("skinsTab").classList.remove("active");
+  document.getElementById("refsTab").classList.add("active");
+  document.getElementById("topTab").classList.remove("active");
+  updateReferralUI();
 }
 
 async function showTopTab(){
   document.getElementById("tasksContent").style.display = "none";
   document.getElementById("upgradesContent").style.display = "none";
   document.getElementById("skinsContent").style.display = "none";
+  document.getElementById("refsContent").style.display = "none";
   document.getElementById("topContent").style.display = "block";
   document.getElementById("tasksTab").classList.remove("active");
   document.getElementById("upgradesTab").classList.remove("active");
   document.getElementById("skinsTab").classList.remove("active");
+  document.getElementById("refsTab").classList.remove("active");
   document.getElementById("topTab").classList.add("active");
   await loadTopPlayers();
 }
@@ -1488,6 +1763,7 @@ document.addEventListener("visibilitychange", () => {
 
 async function initGame(){
   playerId = getTelegramPlayerId();
+  updateReferralUI();
   await loadFromServer();
   startIncomeLoop();
   startEnergyLoop();
