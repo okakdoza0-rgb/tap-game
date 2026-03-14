@@ -801,6 +801,12 @@ text-align:center;
         <img src="07897B5D-2EC7-4125-8A56-BCCF888296F3.png" alt="Скин 2">
         <div class="skinName">Скин 2</div>
       </div>
+
+      <div class="skinItem" id="skin3Card" onclick="setSkin(SKIN_3)">
+        <div class="skinSelected">Выбран</div>
+        <img src="A2FDB96E-AAE9-4DB0-8648-DA7A71C8DA62.png" alt="Скин 3">
+        <div class="skinName">Скин 3</div>
+      </div>
     </div>
   </div>
 
@@ -909,6 +915,7 @@ const BOT_USERNAME = "ArTapclicker_bot";
 
 const DEFAULT_SKIN = "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png";
 const SKIN_2 = "07897B5D-2EC7-4125-8A56-BCCF888296F3.png";
+const SKIN_3 = "A2FDB96E-AAE9-4DB0-8648-DA7A71C8DA62.png";
 const MAX_ENERGY_TARGET = 5000;
 const ENERGY_STEP = 500;
 const MAX_ENERGY_UPGRADES = 9;
@@ -982,6 +989,7 @@ const offlineAmount = document.getElementById("offlineAmount");
 
 const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
+const skin3Card = document.getElementById("skin3Card");
 
 function clampGameValues(){
   if(maxEnergy < 500) maxEnergy = 500;
@@ -1291,6 +1299,7 @@ function updateSkinUI(){
 
   skin1Card.classList.remove("active");
   skin2Card.classList.remove("active");
+  skin3Card.classList.remove("active");
 
   if(currentSkin === DEFAULT_SKIN){
     skin1Card.classList.add("active");
@@ -1298,6 +1307,10 @@ function updateSkinUI(){
 
   if(currentSkin === SKIN_2){
     skin2Card.classList.add("active");
+  }
+
+  if(currentSkin === SKIN_3){
+    skin3Card.classList.add("active");
   }
 }
 
