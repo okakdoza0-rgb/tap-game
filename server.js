@@ -43,13 +43,56 @@ function getAchievementsText(player) {
   return achievements.join("\n");
 }
 
-bot.onText(/\/start/, async (msg) => {
+bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   users.add(msg.from.id);
 
+  const playerId = String(msg.from.id);
+  const nickname = getTelegramNickname(msg.from);
+  const startParam = String(match?.[1] || "").trim();
+
   try {
-    await getOrCreatePlayer(String(msg.from.id), {
-      nickname: getTelegramNickname(msg.from)
-    });
+    let player = await getPlayer(playerId);
+    const isNewPlayer = !player;
+
+    if (!player) {
+      await createPlayer(playerId, { nickname });
+      player = await getPlayer(playerId);
+    } else if (!player.nickname || player.nickname === "Игрок") {
+      player = await savePlayer(playerId, {
+        ...player,
+        nickname
+      });
+    }
+
+    if (isNewPlayer && startParam.startsWith("ref_")) {
+      const inviterId = startParam.replace("ref_", "").trim();
+
+      if (inviterId && inviterId !== playerId && !player.invitedBy) {
+        const inviter = await getPlayer(inviterId);
+
+        if (inviter) {
+          const updatedInviter = await savePlayer(inviterId, {
+            ...inviter,
+            score: Number(inviter.score || 0) + 1500,
+            referralsCount: Number(inviter.referralsCount || 0) + 1
+          });
+
+          player = await savePlayer(playerId, {
+            ...player,
+            invitedBy: inviterId
+          });
+
+          try {
+            await bot.sendMessage(
+              inviterId,
+              `🎉 По твоей реферальной ссылке зашёл новый игрок!\n🪙 Тебе начислено 1500 монет\n👥 Всего приглашено: ${updatedInviter.referralsCount || 0}`
+            );
+          } catch (notifyError) {
+            console.log("Не удалось отправить сообщение пригласившему:", notifyError.message);
+          }
+        }
+      }
+    }
   } catch (error) {
     console.log("Ошибка создания игрока из /start:", error);
   }
@@ -70,11 +113,37 @@ bot.onText(/\/start/, async (msg) => {
   );
 });
 
+bot.onText(/\/ref/, async (msg) => {
+  try {
+    const me = await bot.getMe();
+    const playerId = String(msg.from.id);
+    const refLink = `https://t.me/${me.username}?start=ref_${playerId}`;
+
+    const player = await getOrCreatePlayer(playerId, {
+      nickname: getTelegramNickname(msg.from)
+    });
+
+    await bot.sendMessage(
+      msg.chat.id,
+`👥 Твоя реферальная ссылка:
+
+${refLink}
+
+🎁 За каждого приглашённого друга ты получаешь 1500 монет
+👤 Приглашено: ${player.referralsCount || 0}`
+    );
+  } catch (error) {
+    console.log("Ошибка /ref:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при создании реферальной ссылки");
+  }
+});
+
 bot.onText(/\/players/, (msg) => {
   if (msg.from.id === adminId) {
     bot.sendMessage(msg.chat.id, "👥 Игроков: " + users.size);
   }
 });
+
 /* =========================
    ADMIN COMMANDS
 ========================= */
@@ -104,6 +173,7 @@ bot.onText(/\/admin/, (msg) => {
 ➜ Посмотреть количество игроков`
   );
 });
+
 /* =========================
    ВЫДАЧА МОНЕТ
    /give ID СУММА
@@ -245,6 +315,8 @@ bot.onText(/\/profile\s+(\S+)/, async (msg, match) => {
 🔋 Энергия: ${player.energy}/${player.maxEnergy}
 ⏱ Доход: ${player.clickPower} / ${player.incomeSeconds} сек
 ⚡ Реген энергии: ${player.fastEnergy ? 2 : 3} сек
+👥 Рефералов: ${player.referralsCount || 0}
+🔗 Пригласил: ${player.invitedBy || "Никто"}
 
 🏆 Достижения:
 ${achievementsText}`
@@ -330,7 +402,9 @@ const DEFAULT_PLAYER = {
   task5000EnergyDone: false,
   energyWasZero: false,
   lastTime: Date.now(),
-  nickname: "Игрок"
+  nickname: "Игрок",
+  invitedBy: null,
+  referralsCount: 0
 };
 
 function toNumber(value, fallback) {
@@ -362,6 +436,8 @@ function normalizePlayer(player = {}) {
   normalized.energyWasZero = Boolean(player.energyWasZero);
   normalized.lastTime = toNumber(player.lastTime, Date.now());
   normalized.nickname = String(player.nickname || DEFAULT_PLAYER.nickname).trim() || "Игрок";
+  normalized.invitedBy = player.invitedBy ? String(player.invitedBy).trim() : null;
+  normalized.referralsCount = toNumber(player.referralsCount, DEFAULT_PLAYER.referralsCount);
 
   if (normalized.maxEnergy < 500) normalized.maxEnergy = 500;
   if (normalized.maxEnergy > 5000) normalized.maxEnergy = 5000;
@@ -373,6 +449,7 @@ function normalizePlayer(player = {}) {
   if (normalized.incomeSeconds < 1) normalized.incomeSeconds = 1;
   if (normalized.energyUpgradeCount < 0) normalized.energyUpgradeCount = 0;
   if (normalized.score < 0) normalized.score = 0;
+  if (normalized.referralsCount < 0) normalized.referralsCount = 0;
 
   return normalized;
 }
@@ -408,13 +485,25 @@ async function initDb() {
       task5000energy_done BOOLEAN NOT NULL DEFAULT FALSE,
       energy_was_zero BOOLEAN NOT NULL DEFAULT FALSE,
       last_time BIGINT NOT NULL DEFAULT 0,
-      nickname TEXT NOT NULL DEFAULT 'Игрок'
+      nickname TEXT NOT NULL DEFAULT 'Игрок',
+      invited_by TEXT,
+      referrals_count INTEGER NOT NULL DEFAULT 0
     )
   `);
 
   await pool.query(`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT 'Игрок'
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS invited_by TEXT
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS referrals_count INTEGER NOT NULL DEFAULT 0
   `);
 }
 
@@ -437,7 +526,9 @@ function rowToPlayer(row) {
     task5000EnergyDone: row.task5000energy_done,
     energyWasZero: row.energy_was_zero,
     lastTime: Number(row.last_time),
-    nickname: row.nickname
+    nickname: row.nickname,
+    invitedBy: row.invited_by,
+    referralsCount: row.referrals_count
   };
 }
 
@@ -452,19 +543,20 @@ async function getPlayer(id) {
 }
 
 async function createPlayer(id, extra = {}) {
-  const p = {
+  const p = normalizePlayer({
     ...DEFAULT_PLAYER,
     ...extra
-  };
+  });
 
   await pool.query(
     `INSERT INTO players (
       id, score, click_power, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task_buy1upgrade_done,
-      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname
+      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
+      invited_by, referrals_count
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
     )
     ON CONFLICT (id) DO NOTHING`,
     [
@@ -486,7 +578,9 @@ async function createPlayer(id, extra = {}) {
       p.task5000EnergyDone,
       p.energyWasZero,
       p.lastTime,
-      p.nickname
+      p.nickname,
+      p.invitedBy,
+      p.referralsCount
     ]
   );
 }
@@ -513,9 +607,10 @@ async function savePlayer(id, playerData) {
       id, score, click_power, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task_buy1upgrade_done,
-      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname
+      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
+      invited_by, referrals_count
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
     )
     ON CONFLICT (id) DO UPDATE SET
       score = EXCLUDED.score,
@@ -535,7 +630,9 @@ async function savePlayer(id, playerData) {
       task5000energy_done = EXCLUDED.task5000energy_done,
       energy_was_zero = EXCLUDED.energy_was_zero,
       last_time = EXCLUDED.last_time,
-      nickname = EXCLUDED.nickname`,
+      nickname = EXCLUDED.nickname,
+      invited_by = EXCLUDED.invited_by,
+      referrals_count = EXCLUDED.referrals_count`,
     [
       id,
       p.score,
@@ -555,7 +652,9 @@ async function savePlayer(id, playerData) {
       p.task5000EnergyDone,
       p.energyWasZero,
       Date.now(),
-      p.nickname
+      p.nickname,
+      p.invitedBy,
+      p.referralsCount
     ]
   );
 
@@ -605,6 +704,8 @@ app.post("/save/:id", async (req, res) => {
       clickPower: newData.clickPower ?? newData.click ?? oldPlayer.clickPower,
       currentSkin: newData.currentSkin ?? oldPlayer.currentSkin,
       nickname: newData.nickname || oldPlayer.nickname,
+      invitedBy: newData.invitedBy ?? oldPlayer.invitedBy,
+      referralsCount: newData.referralsCount ?? oldPlayer.referralsCount,
       task10kDone: newData.task10kDone ?? oldPlayer.task10kDone,
       taskBuy1UpgradeDone: newData.taskBuy1UpgradeDone ?? oldPlayer.taskBuy1UpgradeDone,
       taskEmptyEnergyDone: newData.taskEmptyEnergyDone ?? oldPlayer.taskEmptyEnergyDone,
