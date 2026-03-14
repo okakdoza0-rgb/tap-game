@@ -75,7 +75,35 @@ bot.onText(/\/players/, (msg) => {
     bot.sendMessage(msg.chat.id, "👥 Игроков: " + users.size);
   }
 });
+/* =========================
+   ADMIN COMMANDS
+========================= */
 
+bot.onText(/\/admin/, (msg) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  bot.sendMessage(
+    msg.chat.id,
+`⚙️ Админ команды ArTap
+
+/give ID СУММА
+➜ Выдать монеты игроку
+
+/take ID СУММА
+➜ Забрать монеты у игрока
+
+/profile ID
+➜ Посмотреть профиль игрока
+
+/deleteplayer ID
+➜ Полностью удалить игрока
+
+/players
+➜ Посмотреть количество игроков`
+  );
+});
 /* =========================
    ВЫДАЧА МОНЕТ
    /give ID СУММА
