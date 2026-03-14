@@ -673,7 +673,6 @@ color:#333;
 text-align:center;
 }
 
-/* tutorial */
 #tutorialBox{
 position:fixed;
 inset:0;
@@ -809,7 +808,7 @@ cursor:pointer;
 
     <div id="taskClick" class="whiteCard">
       <div class="whiteCardTitle">⚡ +1 клик</div>
-      <div class="whiteCardText">Теперь будет до 3 монет за тап</div>
+      <div class="whiteCardText">Теперь будет до 4 монет за тап</div>
       <div class="whiteCardPrice">Цена: 5000 🪙</div>
       <button id="buyBtnClick" class="buyBtnWhite" onclick="buyClickUpgrade()">Купить</button>
       <div class="redLine"></div>
@@ -986,7 +985,7 @@ const SKIN_3 = "4031226E-D207-4446-81A9-4180DF1E6927.png";
 const MAX_ENERGY_TARGET = 5000;
 const ENERGY_STEP = 500;
 const MAX_ENERGY_UPGRADES = 9;
-const MAX_CLICK_UPGRADES = 2;
+const MAX_CLICK_UPGRADES = 3;
 
 let score = 0;
 let clickPower = 1;
@@ -1070,7 +1069,7 @@ function clampGameValues(){
   if(clickUpgradeLevel > MAX_CLICK_UPGRADES) clickUpgradeLevel = MAX_CLICK_UPGRADES;
 
   if(clickPower < 1) clickPower = 1;
-  if(clickPower > 3) clickPower = 3;
+  if(clickPower > 4) clickPower = 4;
 
   if(incomeSeconds < 1) incomeSeconds = 1;
 
@@ -1726,7 +1725,11 @@ function buyClickUpgrade(){
   if(score >= 5000){
     score -= 5000;
     clickUpgradeLevel += 1;
-    if(clickUpgradeLevel > MAX_CLICK_UPGRADES) clickUpgradeLevel = MAX_CLICK_UPGRADES;
+
+    if(clickUpgradeLevel > MAX_CLICK_UPGRADES){
+      clickUpgradeLevel = MAX_CLICK_UPGRADES;
+    }
+
     clickPower = 1 + clickUpgradeLevel;
     updateUI();
     saveGame();
