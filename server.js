@@ -70,6 +70,7 @@ const DEFAULT_PLAYER = {
   energyUpgradeCount: 0,
   task10kDone: false,
   task1mDone: false,
+  reached1m: false,
   taskBuy1UpgradeDone: false,
   taskEmptyEnergyDone: false,
   task5000EnergyDone: false,
@@ -104,6 +105,7 @@ function normalizePlayer(player = {}) {
   normalized.energyUpgradeCount = toNumber(player.energyUpgradeCount, DEFAULT_PLAYER.energyUpgradeCount);
   normalized.task10kDone = Boolean(player.task10kDone);
   normalized.task1mDone = Boolean(player.task1mDone);
+  normalized.reached1m = Boolean(player.reached1m);
   normalized.taskBuy1UpgradeDone = Boolean(player.taskBuy1UpgradeDone);
   normalized.taskEmptyEnergyDone = Boolean(player.taskEmptyEnergyDone);
   normalized.task5000EnergyDone = Boolean(player.task5000EnergyDone);
@@ -112,6 +114,10 @@ function normalizePlayer(player = {}) {
   normalized.nickname = String(player.nickname || DEFAULT_PLAYER.nickname).trim() || "Игрок";
   normalized.referralsCount = toNumber(player.referralsCount, 0);
   normalized.referredBy = player.referredBy ? String(player.referredBy).trim() : null;
+
+  if (normalized.score >= 1000000) {
+    normalized.reached1m = true;
+  }
 
   if (normalized.maxEnergy < 500) normalized.maxEnergy = 500;
   if (normalized.maxEnergy > 5000) normalized.maxEnergy = 5000;
@@ -155,6 +161,7 @@ async function initDb() {
       energy_upgrade_count INTEGER NOT NULL DEFAULT 0,
       task10k_done BOOLEAN NOT NULL DEFAULT FALSE,
       task1m_done BOOLEAN NOT NULL DEFAULT FALSE,
+      reached1m BOOLEAN NOT NULL DEFAULT FALSE,
       task_buy1upgrade_done BOOLEAN NOT NULL DEFAULT FALSE,
       task_empty_energy_done BOOLEAN NOT NULL DEFAULT FALSE,
       task5000energy_done BOOLEAN NOT NULL DEFAULT FALSE,
@@ -174,6 +181,11 @@ async function initDb() {
   await pool.query(`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS task1m_done BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS reached1m BOOLEAN NOT NULL DEFAULT FALSE
   `);
 
   await pool.query(`
@@ -216,6 +228,7 @@ function rowToPlayer(row) {
     energyUpgradeCount: row.energy_upgrade_count,
     task10kDone: row.task10k_done,
     task1mDone: row.task1m_done,
+    reached1m: row.reached1m,
     taskBuy1UpgradeDone: row.task_buy1upgrade_done,
     taskEmptyEnergyDone: row.task_empty_energy_done,
     task5000EnergyDone: row.task5000energy_done,
@@ -247,11 +260,11 @@ async function createPlayer(id, extra = {}) {
     `INSERT INTO players (
       id, score, click_power, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
-      energy_upgrade_count, task10k_done, task1m_done, task_buy1upgrade_done,
+      energy_upgrade_count, task10k_done, task1m_done, reached1m, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
       referrals_count, referred_by
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23
     )
     ON CONFLICT (id) DO NOTHING`,
     [
@@ -269,6 +282,7 @@ async function createPlayer(id, extra = {}) {
       p.energyUpgradeCount,
       p.task10kDone,
       p.task1mDone,
+      p.reached1m,
       p.taskBuy1UpgradeDone,
       p.taskEmptyEnergyDone,
       p.task5000EnergyDone,
@@ -302,11 +316,11 @@ async function savePlayer(id, playerData) {
     `INSERT INTO players (
       id, score, click_power, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
-      energy_upgrade_count, task10k_done, task1m_done, task_buy1upgrade_done,
+      energy_upgrade_count, task10k_done, task1m_done, reached1m, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
       referrals_count, referred_by
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23
     )
     ON CONFLICT (id) DO UPDATE SET
       score = EXCLUDED.score,
@@ -322,6 +336,7 @@ async function savePlayer(id, playerData) {
       energy_upgrade_count = EXCLUDED.energy_upgrade_count,
       task10k_done = EXCLUDED.task10k_done,
       task1m_done = EXCLUDED.task1m_done,
+      reached1m = EXCLUDED.reached1m,
       task_buy1upgrade_done = EXCLUDED.task_buy1upgrade_done,
       task_empty_energy_done = EXCLUDED.task_empty_energy_done,
       task5000energy_done = EXCLUDED.task5000energy_done,
@@ -345,6 +360,7 @@ async function savePlayer(id, playerData) {
       p.energyUpgradeCount,
       p.task10kDone,
       p.task1mDone,
+      p.reached1m,
       p.taskBuy1UpgradeDone,
       p.taskEmptyEnergyDone,
       p.task5000EnergyDone,
@@ -747,6 +763,7 @@ app.post("/save/:id", async (req, res) => {
       referredBy: oldPlayer.referredBy,
       task10kDone: newData.task10kDone ?? oldPlayer.task10kDone,
       task1mDone: newData.task1mDone ?? oldPlayer.task1mDone,
+      reached1m: newData.reached1m ?? oldPlayer.reached1m,
       taskBuy1UpgradeDone: newData.taskBuy1UpgradeDone ?? oldPlayer.taskBuy1UpgradeDone,
       taskEmptyEnergyDone: newData.taskEmptyEnergyDone ?? oldPlayer.taskEmptyEnergyDone,
       task5000EnergyDone: newData.task5000EnergyDone ?? oldPlayer.task5000EnergyDone,
