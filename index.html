@@ -672,6 +672,60 @@ line-height:1.5;
 color:#333;
 text-align:center;
 }
+
+/* tutorial */
+#tutorialBox{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.65);
+display:none;
+justify-content:center;
+align-items:center;
+z-index:120;
+padding:20px;
+box-sizing:border-box;
+}
+
+#tutorialCard{
+width:330px;
+max-width:100%;
+background:#1f2230;
+border-radius:28px;
+padding:24px 20px;
+text-align:center;
+box-shadow:0 10px 40px rgba(0,0,0,0.55);
+}
+
+#tutorialCharacter{
+width:150px;
+height:auto;
+object-fit:contain;
+margin-bottom:16px;
+}
+
+#tutorialTitle{
+font-size:28px;
+font-weight:bold;
+margin-bottom:12px;
+}
+
+#tutorialText{
+font-size:18px;
+line-height:1.45;
+margin-bottom:18px;
+}
+
+#tutorialBtn{
+width:100%;
+padding:16px;
+font-size:20px;
+font-weight:bold;
+border:none;
+border-radius:20px;
+background:#5865f2;
+color:white;
+cursor:pointer;
+}
 </style>
 </head>
 
@@ -905,6 +959,19 @@ text-align:center;
   </div>
 </div>
 
+<div id="tutorialBox">
+  <div id="tutorialCard">
+    <img id="tutorialCharacter" src="FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png" alt="tutorial">
+    <div id="tutorialTitle">Добро пожаловать 👋</div>
+    <div id="tutorialText">
+      Это <b>ArTap</b>.<br><br>
+      Нажимай на персонажа и зарабатывай монеты.<br>
+      Открывай <b>Центр</b>, покупай улучшения и становись сильнее.
+    </div>
+    <button id="tutorialBtn" onclick="closeTutorial()">Начать</button>
+  </div>
+</div>
+
 <script>
 document.addEventListener("dblclick", function(e){
   e.preventDefault();
@@ -956,6 +1023,7 @@ let serverReady = false;
 let isLoaded = false;
 let isSaving = false;
 let referralsCount = 0;
+let tutorialDone = false;
 
 const scoreElement = document.getElementById("scoreNumber");
 const energyElement = document.getElementById("energyNumber");
@@ -1050,6 +1118,21 @@ function updateReferralUI(){
   if(refLinkBox){
     refLinkBox.innerText = getReferralLink() || "Ссылка недоступна";
   }
+}
+
+function checkTutorial(){
+  const saved = localStorage.getItem("tutorialDone");
+  if(!saved){
+    document.getElementById("tutorialBox").style.display = "flex";
+  }else{
+    tutorialDone = true;
+  }
+}
+
+function closeTutorial(){
+  tutorialDone = true;
+  localStorage.setItem("tutorialDone","1");
+  document.getElementById("tutorialBox").style.display = "none";
 }
 
 async function copyReferralLink(){
@@ -1825,6 +1908,7 @@ async function initGame(){
   startIncomeLoop();
   startEnergyLoop();
   startAutosaveLoop();
+  checkTutorial();
 }
 
 initGame();
