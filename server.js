@@ -94,7 +94,7 @@ function normalizePlayer(player = {}) {
 
   normalized.score = toNumber(player.score ?? player.coins, DEFAULT_PLAYER.score);
   normalized.clickPower = toNumber(player.clickPower ?? player.click, DEFAULT_PLAYER.clickPower);
-  normalized.boughtClick = Boolean(player.boughtClick);
+  normalized.boughtClick = Boolean(player.boughtClick || normalized.clickPower > 1);
   normalized.boughtSpeed = Boolean(player.boughtSpeed);
   normalized.incomeSeconds = toNumber(player.incomeSeconds, DEFAULT_PLAYER.incomeSeconds);
   normalized.fastEnergy = Boolean(player.fastEnergy);
@@ -126,6 +126,8 @@ function normalizePlayer(player = {}) {
   if (normalized.energy > normalized.maxEnergy) normalized.energy = normalized.maxEnergy;
 
   if (normalized.clickPower < 1) normalized.clickPower = 1;
+  if (normalized.clickPower > 4) normalized.clickPower = 4;
+
   if (normalized.incomeSeconds < 1) normalized.incomeSeconds = 1;
   if (normalized.energyUpgradeCount < 0) normalized.energyUpgradeCount = 0;
   if (normalized.score < 0) normalized.score = 0;
@@ -757,7 +759,15 @@ app.post("/save/:id", async (req, res) => {
       ...newData,
       score: newData.score ?? newData.coins ?? oldPlayer.score,
       clickPower: newData.clickPower ?? newData.click ?? oldPlayer.clickPower,
+      boughtClick: newData.boughtClick ?? oldPlayer.boughtClick,
+      boughtSpeed: newData.boughtSpeed ?? oldPlayer.boughtSpeed,
+      incomeSeconds: newData.incomeSeconds ?? oldPlayer.incomeSeconds,
+      fastEnergy: newData.fastEnergy ?? oldPlayer.fastEnergy,
+      energyDelay: newData.energyDelay ?? oldPlayer.energyDelay,
       currentSkin: newData.currentSkin ?? oldPlayer.currentSkin,
+      maxEnergy: newData.maxEnergy ?? oldPlayer.maxEnergy,
+      energy: newData.energy ?? oldPlayer.energy,
+      energyUpgradeCount: newData.energyUpgradeCount ?? oldPlayer.energyUpgradeCount,
       nickname: newData.nickname || oldPlayer.nickname,
       referralsCount: newData.referralsCount ?? oldPlayer.referralsCount,
       referredBy: oldPlayer.referredBy,
