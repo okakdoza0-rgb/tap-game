@@ -45,6 +45,330 @@ function getAchievementsText(player) {
 }
 
 /* =========================
+   POSTGRES DATABASE
+========================= */
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
+const DEFAULT_PLAYER = {
+  score: 0,
+  clickPower: 1,
+  boughtClick: false,
+  boughtSpeed: false,
+  incomeSeconds: 5,
+  fastEnergy: false,
+  energyDelay: 3000,
+  currentSkin: "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png",
+  maxEnergy: 500,
+  energy: 500,
+  energyUpgradeCount: 0,
+  task10kDone: false,
+  taskBuy1UpgradeDone: false,
+  taskEmptyEnergyDone: false,
+  task5000EnergyDone: false,
+  energyWasZero: false,
+  lastTime: Date.now(),
+  nickname: "Игрок",
+  referralsCount: 0,
+  referredBy: null
+};
+
+function toNumber(value, fallback) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function normalizePlayer(player = {}) {
+  const normalized = {
+    ...DEFAULT_PLAYER,
+    ...player
+  };
+
+  normalized.score = toNumber(player.score ?? player.coins, DEFAULT_PLAYER.score);
+  normalized.clickPower = toNumber(player.clickPower ?? player.click, DEFAULT_PLAYER.clickPower);
+  normalized.boughtClick = Boolean(player.boughtClick);
+  normalized.boughtSpeed = Boolean(player.boughtSpeed);
+  normalized.incomeSeconds = toNumber(player.incomeSeconds, DEFAULT_PLAYER.incomeSeconds);
+  normalized.fastEnergy = Boolean(player.fastEnergy);
+  normalized.energyDelay = normalized.fastEnergy ? 2000 : toNumber(player.energyDelay, DEFAULT_PLAYER.energyDelay);
+  normalized.currentSkin = player.currentSkin || DEFAULT_PLAYER.currentSkin;
+  normalized.maxEnergy = toNumber(player.maxEnergy, DEFAULT_PLAYER.maxEnergy);
+  normalized.energy = toNumber(player.energy, normalized.maxEnergy);
+  normalized.energyUpgradeCount = toNumber(player.energyUpgradeCount, DEFAULT_PLAYER.energyUpgradeCount);
+  normalized.task10kDone = Boolean(player.task10kDone);
+  normalized.taskBuy1UpgradeDone = Boolean(player.taskBuy1UpgradeDone);
+  normalized.taskEmptyEnergyDone = Boolean(player.taskEmptyEnergyDone);
+  normalized.task5000EnergyDone = Boolean(player.task5000EnergyDone);
+  normalized.energyWasZero = Boolean(player.energyWasZero);
+  normalized.lastTime = toNumber(player.lastTime, Date.now());
+  normalized.nickname = String(player.nickname || DEFAULT_PLAYER.nickname).trim() || "Игрок";
+  normalized.referralsCount = toNumber(player.referralsCount, 0);
+  normalized.referredBy = player.referredBy ? String(player.referredBy).trim() : null;
+
+  if (normalized.maxEnergy < 500) normalized.maxEnergy = 500;
+  if (normalized.maxEnergy > 5000) normalized.maxEnergy = 5000;
+
+  if (normalized.energy < 0) normalized.energy = 0;
+  if (normalized.energy > normalized.maxEnergy) normalized.energy = normalized.maxEnergy;
+
+  if (normalized.clickPower < 1) normalized.clickPower = 1;
+  if (normalized.incomeSeconds < 1) normalized.incomeSeconds = 1;
+  if (normalized.energyUpgradeCount < 0) normalized.energyUpgradeCount = 0;
+  if (normalized.score < 0) normalized.score = 0;
+  if (normalized.referralsCount < 0) normalized.referralsCount = 0;
+
+  return normalized;
+}
+
+function playerResponse(player) {
+  const normalized = normalizePlayer(player);
+
+  return {
+    ...normalized,
+    coins: normalized.score,
+    click: normalized.clickPower
+  };
+}
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS players (
+      id TEXT PRIMARY KEY,
+      score INTEGER NOT NULL DEFAULT 0,
+      click_power INTEGER NOT NULL DEFAULT 1,
+      bought_click BOOLEAN NOT NULL DEFAULT FALSE,
+      bought_speed BOOLEAN NOT NULL DEFAULT FALSE,
+      income_seconds INTEGER NOT NULL DEFAULT 5,
+      fast_energy BOOLEAN NOT NULL DEFAULT FALSE,
+      energy_delay INTEGER NOT NULL DEFAULT 3000,
+      current_skin TEXT NOT NULL DEFAULT 'FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png',
+      max_energy INTEGER NOT NULL DEFAULT 500,
+      energy INTEGER NOT NULL DEFAULT 500,
+      energy_upgrade_count INTEGER NOT NULL DEFAULT 0,
+      task10k_done BOOLEAN NOT NULL DEFAULT FALSE,
+      task_buy1upgrade_done BOOLEAN NOT NULL DEFAULT FALSE,
+      task_empty_energy_done BOOLEAN NOT NULL DEFAULT FALSE,
+      task5000energy_done BOOLEAN NOT NULL DEFAULT FALSE,
+      energy_was_zero BOOLEAN NOT NULL DEFAULT FALSE,
+      last_time BIGINT NOT NULL DEFAULT 0,
+      nickname TEXT NOT NULL DEFAULT 'Игрок',
+      referrals_count INTEGER NOT NULL DEFAULT 0,
+      referred_by TEXT
+    )
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT 'Игрок'
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS referrals_count INTEGER NOT NULL DEFAULT 0
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS referred_by TEXT
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS bot_users (
+      id TEXT PRIMARY KEY,
+      first_started_at BIGINT NOT NULL
+    )
+  `);
+
+  await pool.query(`
+    INSERT INTO bot_users (id, first_started_at)
+    SELECT id, COALESCE(last_time, 0)
+    FROM players
+    ON CONFLICT (id) DO NOTHING
+  `);
+}
+
+function rowToPlayer(row) {
+  return {
+    score: row.score,
+    clickPower: row.click_power,
+    boughtClick: row.bought_click,
+    boughtSpeed: row.bought_speed,
+    incomeSeconds: row.income_seconds,
+    fastEnergy: row.fast_energy,
+    energyDelay: row.energy_delay,
+    currentSkin: row.current_skin,
+    maxEnergy: row.max_energy,
+    energy: row.energy,
+    energyUpgradeCount: row.energy_upgrade_count,
+    task10kDone: row.task10k_done,
+    taskBuy1UpgradeDone: row.task_buy1upgrade_done,
+    taskEmptyEnergyDone: row.task_empty_energy_done,
+    task5000EnergyDone: row.task5000energy_done,
+    energyWasZero: row.energy_was_zero,
+    lastTime: Number(row.last_time),
+    nickname: row.nickname,
+    referralsCount: row.referrals_count,
+    referredBy: row.referred_by
+  };
+}
+
+async function getPlayer(id) {
+  const result = await pool.query("SELECT * FROM players WHERE id = $1", [id]);
+
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  return rowToPlayer(result.rows[0]);
+}
+
+async function createPlayer(id, extra = {}) {
+  const p = normalizePlayer({
+    ...DEFAULT_PLAYER,
+    ...extra
+  });
+
+  await pool.query(
+    `INSERT INTO players (
+      id, score, click_power, bought_click, bought_speed, income_seconds,
+      fast_energy, energy_delay, current_skin, max_energy, energy,
+      energy_upgrade_count, task10k_done, task_buy1upgrade_done,
+      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
+      referrals_count, referred_by
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
+    )
+    ON CONFLICT (id) DO NOTHING`,
+    [
+      id,
+      p.score,
+      p.clickPower,
+      p.boughtClick,
+      p.boughtSpeed,
+      p.incomeSeconds,
+      p.fastEnergy,
+      p.energyDelay,
+      p.currentSkin,
+      p.maxEnergy,
+      p.energy,
+      p.energyUpgradeCount,
+      p.task10kDone,
+      p.taskBuy1UpgradeDone,
+      p.taskEmptyEnergyDone,
+      p.task5000EnergyDone,
+      p.energyWasZero,
+      p.lastTime,
+      p.nickname,
+      p.referralsCount,
+      p.referredBy
+    ]
+  );
+}
+
+async function getOrCreatePlayer(id, extra = {}) {
+  let player = await getPlayer(id);
+
+  if (!player) {
+    await createPlayer(id, extra);
+    player = await getPlayer(id);
+  }
+
+  return normalizePlayer({
+    ...player,
+    ...extra
+  });
+}
+
+async function savePlayer(id, playerData) {
+  const p = normalizePlayer(playerData);
+
+  await pool.query(
+    `INSERT INTO players (
+      id, score, click_power, bought_click, bought_speed, income_seconds,
+      fast_energy, energy_delay, current_skin, max_energy, energy,
+      energy_upgrade_count, task10k_done, task_buy1upgrade_done,
+      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
+      referrals_count, referred_by
+    ) VALUES (
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      score = EXCLUDED.score,
+      click_power = EXCLUDED.click_power,
+      bought_click = EXCLUDED.bought_click,
+      bought_speed = EXCLUDED.bought_speed,
+      income_seconds = EXCLUDED.income_seconds,
+      fast_energy = EXCLUDED.fast_energy,
+      energy_delay = EXCLUDED.energy_delay,
+      current_skin = EXCLUDED.current_skin,
+      max_energy = EXCLUDED.max_energy,
+      energy = EXCLUDED.energy,
+      energy_upgrade_count = EXCLUDED.energy_upgrade_count,
+      task10k_done = EXCLUDED.task10k_done,
+      task_buy1upgrade_done = EXCLUDED.task_buy1upgrade_done,
+      task_empty_energy_done = EXCLUDED.task_empty_energy_done,
+      task5000energy_done = EXCLUDED.task5000energy_done,
+      energy_was_zero = EXCLUDED.energy_was_zero,
+      last_time = EXCLUDED.last_time,
+      nickname = EXCLUDED.nickname,
+      referrals_count = EXCLUDED.referrals_count,
+      referred_by = EXCLUDED.referred_by`,
+    [
+      id,
+      p.score,
+      p.clickPower,
+      p.boughtClick,
+      p.boughtSpeed,
+      p.incomeSeconds,
+      p.fastEnergy,
+      p.energyDelay,
+      p.currentSkin,
+      p.maxEnergy,
+      p.energy,
+      p.energyUpgradeCount,
+      p.task10kDone,
+      p.taskBuy1UpgradeDone,
+      p.taskEmptyEnergyDone,
+      p.task5000EnergyDone,
+      p.energyWasZero,
+      Date.now(),
+      p.nickname,
+      p.referralsCount,
+      p.referredBy
+    ]
+  );
+
+  return getOrCreatePlayer(id);
+}
+
+async function deletePlayer(id) {
+  const result = await pool.query("DELETE FROM players WHERE id = $1", [id]);
+  return result.rowCount > 0;
+}
+
+async function hasBotStartedBefore(id) {
+  const result = await pool.query(
+    "SELECT id FROM bot_users WHERE id = $1 LIMIT 1",
+    [id]
+  );
+  return result.rows.length > 0;
+}
+
+async function markBotStarted(id) {
+  await pool.query(
+    `INSERT INTO bot_users (id, first_started_at)
+     VALUES ($1, $2)
+     ON CONFLICT (id) DO NOTHING`,
+    [id, Date.now()]
+  );
+}
+
+/* =========================
    /START + РЕФЕРАЛКА
 ========================= */
 
@@ -56,22 +380,21 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   const startParam = String(match?.[1] || "").trim();
 
   try {
-    let existingPlayer = await getPlayer(playerId);
-    const isNewPlayer = !existingPlayer;
+    const startedBefore = await hasBotStartedBefore(playerId);
 
-    if (!existingPlayer) {
+    let player = await getPlayer(playerId);
+    if (!player) {
       await createPlayer(playerId, { nickname });
-      existingPlayer = await getPlayer(playerId);
-    } else if (!existingPlayer.nickname || existingPlayer.nickname === "Игрок") {
-      await savePlayer(playerId, {
-        ...existingPlayer,
+      player = await getPlayer(playerId);
+    } else if (!player.nickname || player.nickname === "Игрок") {
+      player = await savePlayer(playerId, {
+        ...player,
         nickname
       });
-      existingPlayer = await getPlayer(playerId);
     }
 
     if (
-      isNewPlayer &&
+      !startedBefore &&
       startParam.startsWith("ref_")
     ) {
       const inviterId = startParam.replace("ref_", "").trim();
@@ -79,17 +402,17 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
       if (
         inviterId &&
         inviterId !== playerId &&
-        !existingPlayer.referredBy
+        !player.referredBy
       ) {
         const inviter = await getPlayer(inviterId);
 
         if (inviter) {
-          await savePlayer(playerId, {
-            ...existingPlayer,
+          player = await savePlayer(playerId, {
+            ...player,
             referredBy: inviterId
           });
 
-          const inviterUpdated = await savePlayer(inviterId, {
+          const updatedInviter = await savePlayer(inviterId, {
             ...inviter,
             score: Number(inviter.score || 0) + REF_REWARD,
             referralsCount: Number(inviter.referralsCount || 0) + 1
@@ -98,7 +421,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
           try {
             await bot.sendMessage(
               inviterId,
-              `🎉 Новый игрок зашёл по твоей ссылке!\n🪙 Тебе начислено ${REF_REWARD} монет\n👥 Приглашено: ${inviterUpdated.referralsCount || 0}`
+              `🎉 Новый игрок зашёл по твоей ссылке!\n🪙 Тебе начислено ${REF_REWARD} монет\n👥 Приглашено: ${updatedInviter.referralsCount || 0}`
             );
           } catch (notifyError) {
             console.log("Не удалось уведомить пригласившего:", notifyError.message);
@@ -106,8 +429,10 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         }
       }
     }
+
+    await markBotStarted(playerId);
   } catch (error) {
-    console.log("Ошибка создания игрока из /start:", error);
+    console.log("Ошибка /start:", error);
   }
 
   bot.sendMessage(
@@ -366,299 +691,6 @@ bot.onText(/\/deleteplayer\s+(\S+)/, async (msg, match) => {
     bot.sendMessage(msg.chat.id, "❌ Ошибка при удалении игрока");
   }
 });
-
-/* =========================
-   POSTGRES DATABASE
-========================= */
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
-
-const DEFAULT_PLAYER = {
-  score: 0,
-  clickPower: 1,
-  boughtClick: false,
-  boughtSpeed: false,
-  incomeSeconds: 5,
-  fastEnergy: false,
-  energyDelay: 3000,
-  currentSkin: "FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png",
-  maxEnergy: 500,
-  energy: 500,
-  energyUpgradeCount: 0,
-  task10kDone: false,
-  taskBuy1UpgradeDone: false,
-  taskEmptyEnergyDone: false,
-  task5000EnergyDone: false,
-  energyWasZero: false,
-  lastTime: Date.now(),
-  nickname: "Игрок",
-  referralsCount: 0,
-  referredBy: null
-};
-
-function toNumber(value, fallback) {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : fallback;
-}
-
-function normalizePlayer(player = {}) {
-  const normalized = {
-    ...DEFAULT_PLAYER,
-    ...player
-  };
-
-  normalized.score = toNumber(player.score ?? player.coins, DEFAULT_PLAYER.score);
-  normalized.clickPower = toNumber(player.clickPower ?? player.click, DEFAULT_PLAYER.clickPower);
-  normalized.boughtClick = Boolean(player.boughtClick);
-  normalized.boughtSpeed = Boolean(player.boughtSpeed);
-  normalized.incomeSeconds = toNumber(player.incomeSeconds, DEFAULT_PLAYER.incomeSeconds);
-  normalized.fastEnergy = Boolean(player.fastEnergy);
-  normalized.energyDelay = normalized.fastEnergy ? 2000 : toNumber(player.energyDelay, DEFAULT_PLAYER.energyDelay);
-  normalized.currentSkin = player.currentSkin || DEFAULT_PLAYER.currentSkin;
-  normalized.maxEnergy = toNumber(player.maxEnergy, DEFAULT_PLAYER.maxEnergy);
-  normalized.energy = toNumber(player.energy, normalized.maxEnergy);
-  normalized.energyUpgradeCount = toNumber(player.energyUpgradeCount, DEFAULT_PLAYER.energyUpgradeCount);
-  normalized.task10kDone = Boolean(player.task10kDone);
-  normalized.taskBuy1UpgradeDone = Boolean(player.taskBuy1UpgradeDone);
-  normalized.taskEmptyEnergyDone = Boolean(player.taskEmptyEnergyDone);
-  normalized.task5000EnergyDone = Boolean(player.task5000EnergyDone);
-  normalized.energyWasZero = Boolean(player.energyWasZero);
-  normalized.lastTime = toNumber(player.lastTime, Date.now());
-  normalized.nickname = String(player.nickname || DEFAULT_PLAYER.nickname).trim() || "Игрок";
-  normalized.referralsCount = toNumber(player.referralsCount, 0);
-  normalized.referredBy = player.referredBy ? String(player.referredBy).trim() : null;
-
-  if (normalized.maxEnergy < 500) normalized.maxEnergy = 500;
-  if (normalized.maxEnergy > 5000) normalized.maxEnergy = 5000;
-
-  if (normalized.energy < 0) normalized.energy = 0;
-  if (normalized.energy > normalized.maxEnergy) normalized.energy = normalized.maxEnergy;
-
-  if (normalized.clickPower < 1) normalized.clickPower = 1;
-  if (normalized.incomeSeconds < 1) normalized.incomeSeconds = 1;
-  if (normalized.energyUpgradeCount < 0) normalized.energyUpgradeCount = 0;
-  if (normalized.score < 0) normalized.score = 0;
-  if (normalized.referralsCount < 0) normalized.referralsCount = 0;
-
-  return normalized;
-}
-
-function playerResponse(player) {
-  const normalized = normalizePlayer(player);
-
-  return {
-    ...normalized,
-    coins: normalized.score,
-    click: normalized.clickPower
-  };
-}
-
-async function initDb() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS players (
-      id TEXT PRIMARY KEY,
-      score INTEGER NOT NULL DEFAULT 0,
-      click_power INTEGER NOT NULL DEFAULT 1,
-      bought_click BOOLEAN NOT NULL DEFAULT FALSE,
-      bought_speed BOOLEAN NOT NULL DEFAULT FALSE,
-      income_seconds INTEGER NOT NULL DEFAULT 5,
-      fast_energy BOOLEAN NOT NULL DEFAULT FALSE,
-      energy_delay INTEGER NOT NULL DEFAULT 3000,
-      current_skin TEXT NOT NULL DEFAULT 'FA9BC995-07D9-4B53-AB69-3AD0DAD933B8.png',
-      max_energy INTEGER NOT NULL DEFAULT 500,
-      energy INTEGER NOT NULL DEFAULT 500,
-      energy_upgrade_count INTEGER NOT NULL DEFAULT 0,
-      task10k_done BOOLEAN NOT NULL DEFAULT FALSE,
-      task_buy1upgrade_done BOOLEAN NOT NULL DEFAULT FALSE,
-      task_empty_energy_done BOOLEAN NOT NULL DEFAULT FALSE,
-      task5000energy_done BOOLEAN NOT NULL DEFAULT FALSE,
-      energy_was_zero BOOLEAN NOT NULL DEFAULT FALSE,
-      last_time BIGINT NOT NULL DEFAULT 0,
-      nickname TEXT NOT NULL DEFAULT 'Игрок',
-      referrals_count INTEGER NOT NULL DEFAULT 0,
-      referred_by TEXT
-    )
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT 'Игрок'
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS referrals_count INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS referred_by TEXT
-  `);
-}
-
-function rowToPlayer(row) {
-  return {
-    score: row.score,
-    clickPower: row.click_power,
-    boughtClick: row.bought_click,
-    boughtSpeed: row.bought_speed,
-    incomeSeconds: row.income_seconds,
-    fastEnergy: row.fast_energy,
-    energyDelay: row.energy_delay,
-    currentSkin: row.current_skin,
-    maxEnergy: row.max_energy,
-    energy: row.energy,
-    energyUpgradeCount: row.energy_upgrade_count,
-    task10kDone: row.task10k_done,
-    taskBuy1UpgradeDone: row.task_buy1upgrade_done,
-    taskEmptyEnergyDone: row.task_empty_energy_done,
-    task5000EnergyDone: row.task5000energy_done,
-    energyWasZero: row.energy_was_zero,
-    lastTime: Number(row.last_time),
-    nickname: row.nickname,
-    referralsCount: row.referrals_count,
-    referredBy: row.referred_by
-  };
-}
-
-async function getPlayer(id) {
-  const result = await pool.query("SELECT * FROM players WHERE id = $1", [id]);
-
-  if (result.rows.length === 0) {
-    return null;
-  }
-
-  return rowToPlayer(result.rows[0]);
-}
-
-async function createPlayer(id, extra = {}) {
-  const p = normalizePlayer({
-    ...DEFAULT_PLAYER,
-    ...extra
-  });
-
-  await pool.query(
-    `INSERT INTO players (
-      id, score, click_power, bought_click, bought_speed, income_seconds,
-      fast_energy, energy_delay, current_skin, max_energy, energy,
-      energy_upgrade_count, task10k_done, task_buy1upgrade_done,
-      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
-      referrals_count, referred_by
-    ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
-    )
-    ON CONFLICT (id) DO NOTHING`,
-    [
-      id,
-      p.score,
-      p.clickPower,
-      p.boughtClick,
-      p.boughtSpeed,
-      p.incomeSeconds,
-      p.fastEnergy,
-      p.energyDelay,
-      p.currentSkin,
-      p.maxEnergy,
-      p.energy,
-      p.energyUpgradeCount,
-      p.task10kDone,
-      p.taskBuy1UpgradeDone,
-      p.taskEmptyEnergyDone,
-      p.task5000EnergyDone,
-      p.energyWasZero,
-      p.lastTime,
-      p.nickname,
-      p.referralsCount,
-      p.referredBy
-    ]
-  );
-}
-
-async function getOrCreatePlayer(id, extra = {}) {
-  let player = await getPlayer(id);
-
-  if (!player) {
-    await createPlayer(id, extra);
-    player = await getPlayer(id);
-  }
-
-  return normalizePlayer({
-    ...player,
-    ...extra
-  });
-}
-
-async function savePlayer(id, playerData) {
-  const p = normalizePlayer(playerData);
-
-  await pool.query(
-    `INSERT INTO players (
-      id, score, click_power, bought_click, bought_speed, income_seconds,
-      fast_energy, energy_delay, current_skin, max_energy, energy,
-      energy_upgrade_count, task10k_done, task_buy1upgrade_done,
-      task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
-      referrals_count, referred_by
-    ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
-    )
-    ON CONFLICT (id) DO UPDATE SET
-      score = EXCLUDED.score,
-      click_power = EXCLUDED.click_power,
-      bought_click = EXCLUDED.bought_click,
-      bought_speed = EXCLUDED.bought_speed,
-      income_seconds = EXCLUDED.income_seconds,
-      fast_energy = EXCLUDED.fast_energy,
-      energy_delay = EXCLUDED.energy_delay,
-      current_skin = EXCLUDED.current_skin,
-      max_energy = EXCLUDED.max_energy,
-      energy = EXCLUDED.energy,
-      energy_upgrade_count = EXCLUDED.energy_upgrade_count,
-      task10k_done = EXCLUDED.task10k_done,
-      task_buy1upgrade_done = EXCLUDED.task_buy1upgrade_done,
-      task_empty_energy_done = EXCLUDED.task_empty_energy_done,
-      task5000energy_done = EXCLUDED.task5000energy_done,
-      energy_was_zero = EXCLUDED.energy_was_zero,
-      last_time = EXCLUDED.last_time,
-      nickname = EXCLUDED.nickname,
-      referrals_count = EXCLUDED.referrals_count,
-      referred_by = EXCLUDED.referred_by`,
-    [
-      id,
-      p.score,
-      p.clickPower,
-      p.boughtClick,
-      p.boughtSpeed,
-      p.incomeSeconds,
-      p.fastEnergy,
-      p.energyDelay,
-      p.currentSkin,
-      p.maxEnergy,
-      p.energy,
-      p.energyUpgradeCount,
-      p.task10kDone,
-      p.taskBuy1UpgradeDone,
-      p.taskEmptyEnergyDone,
-      p.task5000EnergyDone,
-      p.energyWasZero,
-      Date.now(),
-      p.nickname,
-      p.referralsCount,
-      p.referredBy
-    ]
-  );
-
-  return getOrCreatePlayer(id);
-}
-
-async function deletePlayer(id) {
-  const result = await pool.query("DELETE FROM players WHERE id = $1", [id]);
-  return result.rowCount > 0;
-}
 
 /* =========================
    API
