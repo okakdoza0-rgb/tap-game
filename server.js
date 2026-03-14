@@ -186,6 +186,88 @@ bot.onText(/\/take\s+(\S+)\s+(\d+)/, async (msg, match) => {
 });
 
 /* =========================
+   ВЫДАЧА ЭНЕРГИИ
+   /giveenergy ID СКОЛЬКО
+========================= */
+
+bot.onText(/\/giveenergy\s+(\S+)\s+(\d+)/, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1]).trim();
+    const amount = Math.floor(Number(match[2]));
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return bot.sendMessage(msg.chat.id, "❌ Неверное количество энергии");
+    }
+
+    const player = await getOrCreatePlayer(playerId);
+
+    let newEnergy = Number(player.energy || 0) + amount;
+    let newMaxEnergy = Number(player.maxEnergy || 500);
+    let unlockedTask = false;
+
+    if (newEnergy >= 5000) {
+      newEnergy = 5000;
+
+      if (newMaxEnergy < 5000) {
+        newMaxEnergy = 5000;
+      }
+
+      unlockedTask = true;
+    }
+
+    if (newEnergy > newMaxEnergy) {
+      newEnergy = newMaxEnergy;
+    }
+
+    const updatedPlayer = {
+      ...player,
+      energy: newEnergy,
+      maxEnergy: newMaxEnergy,
+      lastTime: Date.now()
+    };
+
+    const savedPlayer = await savePlayer(playerId, updatedPlayer);
+
+    let text =
+`🔋 Игроку ${playerId} выдано ${amount} энергии
+
+⚡ Теперь энергия: ${savedPlayer.energy}/${savedPlayer.maxEnergy}`;
+
+    if (unlockedTask) {
+      text += `
+
+🏆 Задание "Дойди до 5000 энергии" теперь можно забрать`;
+    }
+
+    await bot.sendMessage(msg.chat.id, text);
+
+    try {
+      if (String(msg.chat.id) !== playerId) {
+        await bot.sendMessage(
+          playerId,
+`🔋 Вам выдано ${amount} энергии в ArTap!
+
+⚡ Энергия: ${savedPlayer.energy}/${savedPlayer.maxEnergy}`
+        );
+      }
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /giveenergy:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при выдаче энергии");
+  }
+});
+
+/* =========================
    ПРОСМОТР ПРОФИЛЯ
    /profile ID
 ========================= */
@@ -651,4 +733,3 @@ initDb()
     console.log("Ошибка запуска БД:", error);
     process.exit(1);
   });
- 
