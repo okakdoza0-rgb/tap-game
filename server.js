@@ -18,6 +18,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 let users = new Set();
 const adminId = 7837011810;
+const REF_REWARD = 1500;
 
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
@@ -43,6 +44,10 @@ function getAchievementsText(player) {
   return achievements.join("\n");
 }
 
+/* =========================
+   /START + РЕФЕРАЛКА
+========================= */
+
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   users.add(msg.from.id);
 
@@ -51,44 +56,52 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   const startParam = String(match?.[1] || "").trim();
 
   try {
-    let player = await getPlayer(playerId);
-    const isNewPlayer = !player;
+    let existingPlayer = await getPlayer(playerId);
+    const isNewPlayer = !existingPlayer;
 
-    if (!player) {
+    if (!existingPlayer) {
       await createPlayer(playerId, { nickname });
-      player = await getPlayer(playerId);
-    } else if (!player.nickname || player.nickname === "Игрок") {
-      player = await savePlayer(playerId, {
-        ...player,
+      existingPlayer = await getPlayer(playerId);
+    } else if (!existingPlayer.nickname || existingPlayer.nickname === "Игрок") {
+      await savePlayer(playerId, {
+        ...existingPlayer,
         nickname
       });
+      existingPlayer = await getPlayer(playerId);
     }
 
-    if (isNewPlayer && startParam.startsWith("ref_")) {
+    if (
+      isNewPlayer &&
+      startParam.startsWith("ref_")
+    ) {
       const inviterId = startParam.replace("ref_", "").trim();
 
-      if (inviterId && inviterId !== playerId && !player.invitedBy) {
+      if (
+        inviterId &&
+        inviterId !== playerId &&
+        !existingPlayer.referredBy
+      ) {
         const inviter = await getPlayer(inviterId);
 
         if (inviter) {
-          const updatedInviter = await savePlayer(inviterId, {
-            ...inviter,
-            score: Number(inviter.score || 0) + 1500,
-            referralsCount: Number(inviter.referralsCount || 0) + 1
+          await savePlayer(playerId, {
+            ...existingPlayer,
+            referredBy: inviterId
           });
 
-          player = await savePlayer(playerId, {
-            ...player,
-            invitedBy: inviterId
+          const inviterUpdated = await savePlayer(inviterId, {
+            ...inviter,
+            score: Number(inviter.score || 0) + REF_REWARD,
+            referralsCount: Number(inviter.referralsCount || 0) + 1
           });
 
           try {
             await bot.sendMessage(
               inviterId,
-              `🎉 По твоей реферальной ссылке зашёл новый игрок!\n🪙 Тебе начислено 1500 монет\n👥 Всего приглашено: ${updatedInviter.referralsCount || 0}`
+              `🎉 Новый игрок зашёл по твоей ссылке!\n🪙 Тебе начислено ${REF_REWARD} монет\n👥 Приглашено: ${inviterUpdated.referralsCount || 0}`
             );
           } catch (notifyError) {
-            console.log("Не удалось отправить сообщение пригласившему:", notifyError.message);
+            console.log("Не удалось уведомить пригласившего:", notifyError.message);
           }
         }
       }
@@ -117,11 +130,12 @@ bot.onText(/\/ref/, async (msg) => {
   try {
     const me = await bot.getMe();
     const playerId = String(msg.from.id);
-    const refLink = `https://t.me/${me.username}?start=ref_${playerId}`;
 
     const player = await getOrCreatePlayer(playerId, {
       nickname: getTelegramNickname(msg.from)
     });
+
+    const refLink = `https://t.me/${me.username}?start=ref_${playerId}`;
 
     await bot.sendMessage(
       msg.chat.id,
@@ -129,7 +143,7 @@ bot.onText(/\/ref/, async (msg) => {
 
 ${refLink}
 
-🎁 За каждого приглашённого друга ты получаешь 1500 монет
+🎁 За каждого нового игрока ты получаешь ${REF_REWARD} монет
 👤 Приглашено: ${player.referralsCount || 0}`
     );
   } catch (error) {
@@ -173,11 +187,6 @@ bot.onText(/\/admin/, (msg) => {
 ➜ Посмотреть количество игроков`
   );
 });
-
-/* =========================
-   ВЫДАЧА МОНЕТ
-   /give ID СУММА
-========================= */
 
 bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
   if (msg.from.id !== adminId) {
@@ -226,11 +235,6 @@ bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
     bot.sendMessage(msg.chat.id, "❌ Ошибка при начислении монет");
   }
 });
-
-/* =========================
-   СНЯТИЕ МОНЕТ
-   /take ID СУММА
-========================= */
 
 bot.onText(/\/take\s+(\S+)\s+(\d+)/, async (msg, match) => {
   if (msg.from.id !== adminId) {
@@ -283,11 +287,6 @@ bot.onText(/\/take\s+(\S+)\s+(\d+)/, async (msg, match) => {
   }
 });
 
-/* =========================
-   ПРОСМОТР ПРОФИЛЯ
-   /profile ID
-========================= */
-
 bot.onText(/\/profile\s+(\S+)/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
@@ -316,7 +315,7 @@ bot.onText(/\/profile\s+(\S+)/, async (msg, match) => {
 ⏱ Доход: ${player.clickPower} / ${player.incomeSeconds} сек
 ⚡ Реген энергии: ${player.fastEnergy ? 2 : 3} сек
 👥 Рефералов: ${player.referralsCount || 0}
-🔗 Пригласил: ${player.invitedBy || "Никто"}
+🔗 Пришёл от: ${player.referredBy || "Никого"}
 
 🏆 Достижения:
 ${achievementsText}`
@@ -326,11 +325,6 @@ ${achievementsText}`
     bot.sendMessage(msg.chat.id, "❌ Ошибка при просмотре профиля");
   }
 });
-
-/* =========================
-   УДАЛЕНИЕ ИГРОКА ИЗ ИГРЫ
-   /deleteplayer ID
-========================= */
 
 bot.onText(/\/deleteplayer\s+(\S+)/, async (msg, match) => {
   if (msg.from.id !== adminId) {
@@ -403,8 +397,8 @@ const DEFAULT_PLAYER = {
   energyWasZero: false,
   lastTime: Date.now(),
   nickname: "Игрок",
-  invitedBy: null,
-  referralsCount: 0
+  referralsCount: 0,
+  referredBy: null
 };
 
 function toNumber(value, fallback) {
@@ -436,8 +430,8 @@ function normalizePlayer(player = {}) {
   normalized.energyWasZero = Boolean(player.energyWasZero);
   normalized.lastTime = toNumber(player.lastTime, Date.now());
   normalized.nickname = String(player.nickname || DEFAULT_PLAYER.nickname).trim() || "Игрок";
-  normalized.invitedBy = player.invitedBy ? String(player.invitedBy).trim() : null;
-  normalized.referralsCount = toNumber(player.referralsCount, DEFAULT_PLAYER.referralsCount);
+  normalized.referralsCount = toNumber(player.referralsCount, 0);
+  normalized.referredBy = player.referredBy ? String(player.referredBy).trim() : null;
 
   if (normalized.maxEnergy < 500) normalized.maxEnergy = 500;
   if (normalized.maxEnergy > 5000) normalized.maxEnergy = 5000;
@@ -486,8 +480,8 @@ async function initDb() {
       energy_was_zero BOOLEAN NOT NULL DEFAULT FALSE,
       last_time BIGINT NOT NULL DEFAULT 0,
       nickname TEXT NOT NULL DEFAULT 'Игрок',
-      invited_by TEXT,
-      referrals_count INTEGER NOT NULL DEFAULT 0
+      referrals_count INTEGER NOT NULL DEFAULT 0,
+      referred_by TEXT
     )
   `);
 
@@ -498,12 +492,12 @@ async function initDb() {
 
   await pool.query(`
     ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS invited_by TEXT
+    ADD COLUMN IF NOT EXISTS referrals_count INTEGER NOT NULL DEFAULT 0
   `);
 
   await pool.query(`
     ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS referrals_count INTEGER NOT NULL DEFAULT 0
+    ADD COLUMN IF NOT EXISTS referred_by TEXT
   `);
 }
 
@@ -527,8 +521,8 @@ function rowToPlayer(row) {
     energyWasZero: row.energy_was_zero,
     lastTime: Number(row.last_time),
     nickname: row.nickname,
-    invitedBy: row.invited_by,
-    referralsCount: row.referrals_count
+    referralsCount: row.referrals_count,
+    referredBy: row.referred_by
   };
 }
 
@@ -554,7 +548,7 @@ async function createPlayer(id, extra = {}) {
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
-      invited_by, referrals_count
+      referrals_count, referred_by
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
     )
@@ -579,8 +573,8 @@ async function createPlayer(id, extra = {}) {
       p.energyWasZero,
       p.lastTime,
       p.nickname,
-      p.invitedBy,
-      p.referralsCount
+      p.referralsCount,
+      p.referredBy
     ]
   );
 }
@@ -608,7 +602,7 @@ async function savePlayer(id, playerData) {
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
-      invited_by, referrals_count
+      referrals_count, referred_by
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
     )
@@ -631,8 +625,8 @@ async function savePlayer(id, playerData) {
       energy_was_zero = EXCLUDED.energy_was_zero,
       last_time = EXCLUDED.last_time,
       nickname = EXCLUDED.nickname,
-      invited_by = EXCLUDED.invited_by,
-      referrals_count = EXCLUDED.referrals_count`,
+      referrals_count = EXCLUDED.referrals_count,
+      referred_by = EXCLUDED.referred_by`,
     [
       id,
       p.score,
@@ -653,8 +647,8 @@ async function savePlayer(id, playerData) {
       p.energyWasZero,
       Date.now(),
       p.nickname,
-      p.invitedBy,
-      p.referralsCount
+      p.referralsCount,
+      p.referredBy
     ]
   );
 
@@ -704,8 +698,8 @@ app.post("/save/:id", async (req, res) => {
       clickPower: newData.clickPower ?? newData.click ?? oldPlayer.clickPower,
       currentSkin: newData.currentSkin ?? oldPlayer.currentSkin,
       nickname: newData.nickname || oldPlayer.nickname,
-      invitedBy: newData.invitedBy ?? oldPlayer.invitedBy,
       referralsCount: newData.referralsCount ?? oldPlayer.referralsCount,
+      referredBy: oldPlayer.referredBy,
       task10kDone: newData.task10kDone ?? oldPlayer.task10kDone,
       taskBuy1UpgradeDone: newData.taskBuy1UpgradeDone ?? oldPlayer.taskBuy1UpgradeDone,
       taskEmptyEnergyDone: newData.taskEmptyEnergyDone ?? oldPlayer.taskEmptyEnergyDone,
@@ -725,10 +719,6 @@ app.post("/save/:id", async (req, res) => {
     return res.status(500).json({ error: "Ошибка сохранения" });
   }
 });
-
-/* =========================
-   TOP 50 PLAYERS
-========================= */
 
 app.get("/top", async (req, res) => {
   try {
