@@ -932,6 +932,7 @@ let energyUpgradeCount = 0;
 
 let task10kDone = false;
 let task1mDone = false;
+let reached1m = false;
 let taskBuy1UpgradeDone = false;
 let taskEmptyEnergyDone = false;
 let task5000EnergyDone = false;
@@ -1133,6 +1134,7 @@ function getSavePayload(){
     energyUpgradeCount: energyUpgradeCount,
     task10kDone: task10kDone,
     task1mDone: task1mDone,
+    reached1m: reached1m,
     taskBuy1UpgradeDone: taskBuy1UpgradeDone,
     taskEmptyEnergyDone: taskEmptyEnergyDone,
     task5000EnergyDone: task5000EnergyDone,
@@ -1185,6 +1187,7 @@ async function loadFromServer(){
 
     task10kDone = !!data.task10kDone;
     task1mDone = !!data.task1mDone;
+    reached1m = !!data.reached1m;
     taskBuy1UpgradeDone = !!data.taskBuy1UpgradeDone;
     taskEmptyEnergyDone = !!data.taskEmptyEnergyDone;
     task5000EnergyDone = !!data.task5000EnergyDone;
@@ -1204,6 +1207,10 @@ async function loadFromServer(){
 
       const restoredEnergy = Math.floor(diffMs / energyDelay);
       energy = Math.min(maxEnergy, energy + restoredEnergy);
+    }
+
+    if(score >= 1000000){
+      reached1m = true;
     }
 
     if(offlineCoins > 0){
@@ -1372,6 +1379,10 @@ function applyDoneStates(){
 function updateUI(){
   clampGameValues();
 
+  if(score >= 1000000){
+    reached1m = true;
+  }
+
   scoreElement.innerText = formatCoins(score);
   energyElement.innerText = energy;
   maxEnergyElement.innerText = maxEnergy;
@@ -1381,7 +1392,7 @@ function updateUI(){
   }
 
   if(!task1mDone){
-    claimTask1mBtn.disabled = !(score >= 1000000);
+    claimTask1mBtn.disabled = !reached1m;
   }
 
   if(!taskBuy1UpgradeDone){
@@ -1695,7 +1706,7 @@ function claimTask10k(){
 
 function claimTask1m(){
   if(!isLoaded) return;
-  if(task1mDone || score < 1000000) return;
+  if(task1mDone || !reached1m) return;
 
   score += 100000;
   task1mDone = true;
