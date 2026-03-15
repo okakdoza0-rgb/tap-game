@@ -25,6 +25,11 @@ const promoCreationState = new Map();
 const promoInputState = new Map();
 const maintenanceInputState = new Map();
 
+/* чтобы не слать напоминание одному и тому же игроку каждые 30 минут */
+const remindedPlayers = new Map();
+const REMIND_AFTER_MS = 6 * 60 * 60 * 1000; // 6 часов
+const REMIND_REPEAT_MS = 6 * 60 * 60 * 1000; // повтор не чаще чем раз в 6 часов
+
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
   const username = String(user.username || "").trim();
@@ -466,6 +471,7 @@ async function savePlayer(id, playerData) {
     ]
   );
 
+  remindedPlayers.delete(String(id));
   return getOrCreatePlayer(id);
 }
 
@@ -1567,6 +1573,7 @@ bot.onText(/^\/deleteplayer\s+(\S+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
     }
 
     users.delete(Number(playerId));
+    remindedPlayers.delete(String(playerId));
     await pool.query("DELETE FROM online_players WHERE id = $1", [playerId]);
 
     await bot.sendMessage(
@@ -1952,7 +1959,6 @@ app.get("/", (req, res) => {
 
 async function remindInactivePlayers() {
   try {
-
     const result = await pool.query(`
       SELECT id, nickname, last_time
       FROM players
@@ -1961,46 +1967,45 @@ async function remindInactivePlayers() {
     const now = Date.now();
 
     for (const row of result.rows) {
-
-      const playerId = String(row.id);
+      const playerId = String(row.id || "").trim();
       const lastTime = Number(row.last_time || 0);
 
+      if (!playerId) continue;
+
+      const banned = await isPlayerBanned(playerId);
+      if (banned) continue;
+
       const diff = now - lastTime;
+      if (diff < REMIND_AFTER_MS) {
+        remindedPlayers.delete(playerId);
+        continue;
+      }
 
-      // если игрок не заходил 6 часов
-      if (diff > 6 * 60 * 60 * 1000) {
+      const lastRemindedAt = Number(remindedPlayers.get(playerId) || 0);
+      if (lastRemindedAt && now - lastRemindedAt < REMIND_REPEAT_MS) {
+        continue;
+      }
 
-        try {
-
-          await bot.sendMessage(
-            playerId,
+      try {
+        await bot.sendMessage(
+          playerId,
 `⚡ Энергия восстановилась!
 
 🎮 Возвращайся в *ArTap*
 и продолжай зарабатывать монеты!`,
-            { parse_mode: "Markdown" }
-          );
+          { parse_mode: "Markdown" }
+        );
 
-          console.log("Напоминание отправлено:", playerId);
-
-        } catch (err) {
-          console.log("Ошибка отправки:", playerId);
-        }
-
+        remindedPlayers.set(playerId, now);
+        console.log("Напоминание отправлено:", playerId);
+      } catch (err) {
+        console.log("Ошибка отправки:", playerId, err.message);
       }
-
     }
-
   } catch (error) {
     console.log("Ошибка напоминаний:", error);
   }
 }
-
-// отправить один раз после запуска
-setTimeout(remindInactivePlayers, 10000);
-
-// проверять каждые 30 минут
-setInterval(remindInactivePlayers, 30 * 60 * 1000);
 
 /* =========================
    START
@@ -2011,6 +2016,9 @@ initDb()
     app.listen(PORT, () => {
       console.log("Server started on port " + PORT);
     });
+
+    setTimeout(remindInactivePlayers, 10000);
+    setInterval(remindInactivePlayers, 30 * 60 * 1000);
   })
   .catch((error) => {
     console.log("Ошибка запуска БД:", error);
