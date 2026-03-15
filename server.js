@@ -19,6 +19,7 @@ const bot = new TelegramBot(token, { polling: true });
 let users = new Set();
 const adminId = 7837011810;
 const REF_REWARD = 1500;
+const ONLINE_LIMIT_MS = 30000;
 
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
@@ -226,6 +227,14 @@ async function initDb() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS online_players (
+      id TEXT PRIMARY KEY,
+      nickname TEXT NOT NULL DEFAULT 'Игрок',
+      last_seen BIGINT NOT NULL DEFAULT 0
+    )
+  `);
+
+  await pool.query(`
     INSERT INTO bot_users (id, first_started_at)
     SELECT id, COALESCE(last_time, 0)
     FROM players
@@ -425,6 +434,32 @@ async function markBotStarted(id) {
   );
 }
 
+async function updateOnlinePlayer(id, nickname = "Игрок") {
+  await pool.query(
+    `INSERT INTO online_players (id, nickname, last_seen)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO UPDATE SET
+       nickname = EXCLUDED.nickname,
+       last_seen = EXCLUDED.last_seen`,
+    [id, nickname, Date.now()]
+  );
+}
+
+async function getOnlinePlayers() {
+  const minTime = Date.now() - ONLINE_LIMIT_MS;
+
+  const result = await pool.query(
+    `SELECT id, nickname, last_seen
+     FROM online_players
+     WHERE last_seen >= $1
+     ORDER BY last_seen DESC
+     LIMIT 50`,
+    [minTime]
+  );
+
+  return result.rows;
+}
+
 /* =========================
    /START + РЕФЕРАЛКА
 ========================= */
@@ -449,6 +484,8 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         nickname
       });
     }
+
+    await updateOnlinePlayer(playerId, nickname);
 
     if (
       !startedBefore &&
@@ -517,6 +554,8 @@ bot.onText(/\/ref/, async (msg) => {
       nickname: getTelegramNickname(msg.from)
     });
 
+    await updateOnlinePlayer(playerId, player.nickname || "Игрок");
+
     const refLink = `https://t.me/${me.username}?start=ref_${playerId}`;
 
     await bot.sendMessage(
@@ -537,6 +576,28 @@ ${refLink}
 bot.onText(/\/players/, (msg) => {
   if (msg.from.id === adminId) {
     bot.sendMessage(msg.chat.id, "👥 Игроков: " + users.size);
+  }
+});
+
+bot.onText(/\/online/, async (msg) => {
+  try {
+    const players = await getOnlinePlayers();
+
+    if (!players.length) {
+      return bot.sendMessage(msg.chat.id, "🟢 Сейчас в игре никого нет");
+    }
+
+    const text = players
+      .map((player, index) => `${index + 1}. ${player.nickname || "Игрок"} — ${player.id}`)
+      .join("\n");
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `🟢 Сейчас в игре: ${players.length}\n\n${text}`
+    );
+  } catch (error) {
+    console.log("Ошибка /online:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при получении онлайна");
   }
 });
 
@@ -566,7 +627,10 @@ bot.onText(/\/admin/, (msg) => {
 ➜ Полностью удалить игрока
 
 /players
-➜ Посмотреть количество игроков`
+➜ Посмотреть количество игроков
+
+/online
+➜ Кто сейчас в игре`
   );
 });
 
@@ -728,6 +792,8 @@ bot.onText(/\/deleteplayer\s+(\S+)/, async (msg, match) => {
 
     users.delete(Number(playerId));
 
+    await pool.query("DELETE FROM online_players WHERE id = $1", [playerId]);
+
     await bot.sendMessage(
       msg.chat.id,
       `🗑 Игрок ${playerId} полностью удалён из игры`
@@ -811,6 +877,10 @@ app.post("/save/:id", async (req, res) => {
 
     const savedPlayer = await savePlayer(id, merged);
 
+    if (savedPlayer?.nickname) {
+      await updateOnlinePlayer(id, savedPlayer.nickname);
+    }
+
     return res.json({
       status: "ok",
       player: playerResponse(savedPlayer)
@@ -818,6 +888,24 @@ app.post("/save/:id", async (req, res) => {
   } catch (error) {
     console.log("Ошибка /save:", error);
     return res.status(500).json({ error: "Ошибка сохранения" });
+  }
+});
+
+app.post("/online/:id", async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    const nickname = String(req.body?.nickname || "Игрок").trim() || "Игрок";
+
+    if (!id) {
+      return res.status(400).json({ error: "Нет ID игрока" });
+    }
+
+    await updateOnlinePlayer(id, nickname);
+
+    return res.json({ status: "ok" });
+  } catch (error) {
+    console.log("Ошибка /online:", error);
+    return res.status(500).json({ error: "Ошибка онлайна" });
   }
 });
 
