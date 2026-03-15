@@ -1042,6 +1042,9 @@ bot.onText(/^\/admin$/, (msg) => {
 /resetcoins ID
 ➜ Сбросить монеты игроку
 
+/broadcast ТЕКСТ
+➜ Отправить сообщение всем игрокам
+
 /createpromo
 ➜ Создать промокод через вопросы
 
@@ -1323,6 +1326,71 @@ bot.onText(/^\/resetcoins\s+(\S+)$/i, async (msg, match) => {
   } catch (error) {
     console.log("Ошибка /resetcoins:", error);
     bot.sendMessage(msg.chat.id, "❌ Ошибка при сбросе монет");
+  }
+});
+
+bot.onText(/^\/broadcast\s+([\s\S]+)$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const messageText = String(match[1] || "").trim();
+
+    if (!messageText) {
+      return bot.sendMessage(msg.chat.id, "❌ Напиши текст для рассылки");
+    }
+
+    const result = await pool.query(
+      `SELECT id FROM bot_users ORDER BY first_started_at ASC`
+    );
+
+    const allUsers = result.rows
+      .map(row => String(row.id || "").trim())
+      .filter(Boolean);
+
+    if (!allUsers.length) {
+      return bot.sendMessage(msg.chat.id, "❌ Нет игроков для рассылки");
+    }
+
+    let success = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `📢 Начинаю рассылку...\n👥 Всего игроков: ${allUsers.length}`
+    );
+
+    for (const userId of allUsers) {
+      try {
+        const banned = await isPlayerBanned(userId);
+        if (banned) {
+          skipped++;
+          continue;
+        }
+
+        await bot.sendMessage(
+          userId,
+          `📢 Сообщение от администрации ArTap\n\n${messageText}`
+        );
+
+        success++;
+      } catch (error) {
+        failed++;
+        console.log(`Ошибка рассылки игроку ${userId}:`, error.message);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 40));
+    }
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `✅ Рассылка завершена\n\n📨 Успешно: ${success}\n⏭ Пропущено: ${skipped}\n❌ Ошибок: ${failed}`
+    );
+  } catch (error) {
+    console.log("Ошибка /broadcast:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при рассылке");
   }
 });
 
