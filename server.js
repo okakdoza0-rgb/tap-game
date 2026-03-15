@@ -27,8 +27,8 @@ const maintenanceInputState = new Map();
 
 /* чтобы не слать напоминание одному и тому же игроку каждые 30 минут */
 const remindedPlayers = new Map();
-const REMIND_AFTER_MS = 6 * 60 * 60 * 1000; // 6 часов
-const REMIND_REPEAT_MS = 6 * 60 * 60 * 1000; // повтор не чаще чем раз в 6 часов
+const REMIND_AFTER_MS = 60 * 1000;
+const REMIND_REPEAT_MS = 60 * 1000;
 
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
