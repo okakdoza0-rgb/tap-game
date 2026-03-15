@@ -807,30 +807,13 @@ bot.onText(/^\/promo$/, async (msg) => {
     await updateOnlinePlayer(playerId, nickname);
 
     promoInputState.set(playerId, {
-      step: "await_code"
+      action: "promo_activate"
     });
 
-    await bot.sendMessage(
-      msg.chat.id,
-      "🎟 Напиши промокод"
-    );
+    await bot.sendMessage(msg.chat.id, "🎟 Напиши промокод");
   } catch (error) {
     console.log("Ошибка /promo:", error);
     bot.sendMessage(msg.chat.id, "❌ Ошибка");
-  }
-});
-
-bot.onText(/^\/promo\s+(.+)$/, async (msg, match) => {
-  try {
-    const playerId = String(msg.from.id);
-    const nickname = getTelegramNickname(msg.from);
-    const rawCode = String(match[1] || "").trim();
-
-    await updateOnlinePlayer(playerId, nickname);
-    await handlePromoActivation(msg.chat.id, playerId, nickname, rawCode);
-  } catch (error) {
-    console.log("Ошибка /promo code:", error);
-    bot.sendMessage(msg.chat.id, "❌ Ошибка при активации промокода");
   }
 });
 
@@ -893,14 +876,14 @@ bot.onText(/^\/admin$/, (msg) => {
 /cancelpromo
 ➜ Отменить создание промокода
 
-/promoinfo КОД
-➜ Информация по промокоду
+/promoinfo
+➜ Проверка промокода по шагам
 
 /promolist
 ➜ Список промокодов
 
-/promodelete КОД
-➜ Удалить промокод
+/promodelete
+➜ Удалить промокод по шагам
 
 /promo
 ➜ Игрок вводит промокод по шагам
@@ -937,34 +920,19 @@ bot.onText(/^\/cancelpromo$/, async (msg) => {
   await bot.sendMessage(msg.chat.id, "❌ Создание промокода отменено");
 });
 
-bot.onText(/^\/promoinfo\s+(.+)$/, async (msg, match) => {
+bot.onText(/^\/promoinfo$/, async (msg) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
 
-  try {
-    const code = normalizePromoCode(match[1]);
-    const promo = await getPromoByCode(code);
+  promoInputState.set(String(msg.from.id), {
+    action: "promo_info"
+  });
 
-    if (!promo) {
-      return bot.sendMessage(msg.chat.id, "❌ Промокод не найден");
-    }
-
-    const left = Math.max(
-      0,
-      Number(promo.max_activations || 0) - Number(promo.current_activations || 0)
-    );
-
-    const status = promo.is_active ? "активен" : (left === 0 ? "закончился" : "выключен");
-
-    await bot.sendMessage(
-      msg.chat.id,
-      `🎟 Промокод: ${promo.code}\n🪙 Награда: ${promo.reward}\n✅ Активировано: ${promo.current_activations}\n📦 Осталось: ${left}\n📊 Всего активаций: ${promo.max_activations}\nСтатус: ${status}`
-    );
-  } catch (error) {
-    console.log("Ошибка /promoinfo:", error);
-    bot.sendMessage(msg.chat.id, "❌ Ошибка при просмотре промокода");
-  }
+  await bot.sendMessage(
+    msg.chat.id,
+    "📋 Напиши код промокода для проверки"
+  );
 });
 
 bot.onText(/^\/promolist$/, async (msg) => {
@@ -1000,32 +968,19 @@ bot.onText(/^\/promolist$/, async (msg) => {
   }
 });
 
-bot.onText(/^\/promodelete\s+(.+)$/, async (msg, match) => {
+bot.onText(/^\/promodelete$/, async (msg) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
 
-  try {
-    const code = normalizePromoCode(match[1]);
-    const deleted = await deletePromoCode(code);
+  promoInputState.set(String(msg.from.id), {
+    action: "promo_delete"
+  });
 
-    if (!deleted) {
-      return bot.sendMessage(msg.chat.id, "❌ Промокод не найден");
-    }
-
-    await pool.query(
-      `DELETE FROM promo_activations WHERE code = $1`,
-      [code]
-    );
-
-    await bot.sendMessage(
-      msg.chat.id,
-      `🗑 Промокод ${code} удалён`
-    );
-  } catch (error) {
-    console.log("Ошибка /promodelete:", error);
-    bot.sendMessage(msg.chat.id, "❌ Ошибка при удалении промокода");
-  }
+  await bot.sendMessage(
+    msg.chat.id,
+    "🗑 Напиши код промокода для удаления"
+  );
 });
 
 bot.onText(/^\/give\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
@@ -1236,10 +1191,65 @@ bot.on("message", async (msg) => {
     }
 
     const promoWait = promoInputState.get(playerId);
-    if (promoWait && promoWait.step === "await_code") {
+
+    if (promoWait && promoWait.action === "promo_activate") {
       promoInputState.delete(playerId);
       await updateOnlinePlayer(playerId, nickname);
       return handlePromoActivation(msg.chat.id, playerId, nickname, text);
+    }
+
+    if (promoWait && promoWait.action === "promo_info") {
+      if (msg.from.id !== adminId) {
+        promoInputState.delete(playerId);
+        return;
+      }
+
+      promoInputState.delete(playerId);
+
+      const code = normalizePromoCode(text);
+      const promo = await getPromoByCode(code);
+
+      if (!promo) {
+        return bot.sendMessage(msg.chat.id, "❌ Промокод не найден");
+      }
+
+      const left = Math.max(
+        0,
+        Number(promo.max_activations || 0) - Number(promo.current_activations || 0)
+      );
+
+      const status = promo.is_active ? "активен" : (left === 0 ? "закончился" : "выключен");
+
+      return bot.sendMessage(
+        msg.chat.id,
+        `🎟 Промокод: ${promo.code}\n🪙 Награда: ${promo.reward}\n✅ Активировано: ${promo.current_activations}\n📦 Осталось: ${left}\n📊 Всего активаций: ${promo.max_activations}\nСтатус: ${status}`
+      );
+    }
+
+    if (promoWait && promoWait.action === "promo_delete") {
+      if (msg.from.id !== adminId) {
+        promoInputState.delete(playerId);
+        return;
+      }
+
+      promoInputState.delete(playerId);
+
+      const code = normalizePromoCode(text);
+      const deleted = await deletePromoCode(code);
+
+      if (!deleted) {
+        return bot.sendMessage(msg.chat.id, "❌ Промокод не найден");
+      }
+
+      await pool.query(
+        `DELETE FROM promo_activations WHERE code = $1`,
+        [code]
+      );
+
+      return bot.sendMessage(
+        msg.chat.id,
+        `🗑 Промокод ${code} удалён`
+      );
     }
 
     if (msg.from.id !== adminId) return;
