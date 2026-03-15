@@ -779,6 +779,14 @@ cursor:pointer;
       <div class="redLine"></div>
     </div>
 
+    <div id="task4Click" class="whiteCard">
+      <div class="whiteCardTitle">⚡ Дойди до 4 клика</div>
+      <div class="whiteCardText">Сделай силу клика 4</div>
+      <div class="whiteCardText">Награда: 1500 🪙</div>
+      <button id="claimTask4Click" class="buyBtnWhite" onclick="claimTask4Click()" disabled>Выполнить</button>
+      <div class="redLine"></div>
+    </div>
+
     <div id="taskBuy1Upgrade" class="whiteCard">
       <div class="whiteCardTitle">🛒 Купи 1 улучшение</div>
       <div class="whiteCardText">Награда: 2000 🪙</div>
@@ -1005,6 +1013,7 @@ let energyUpgradeCount = 0;
 
 let task10kDone = false;
 let task1mDone = false;
+let task4ClickDone = false;
 let reached1m = false;
 let taskBuy1UpgradeDone = false;
 let taskEmptyEnergyDone = false;
@@ -1037,6 +1046,7 @@ const taskFastEnergy = document.getElementById("taskFastEnergy");
 
 const task10k = document.getElementById("task10k");
 const task1m = document.getElementById("task1m");
+const task4Click = document.getElementById("task4Click");
 const taskBuy1Upgrade = document.getElementById("taskBuy1Upgrade");
 const taskEmptyEnergy = document.getElementById("taskEmptyEnergy");
 const task5000Energy = document.getElementById("task5000Energy");
@@ -1048,6 +1058,7 @@ const buyBtnFastEnergy = document.getElementById("buyBtnFastEnergy");
 
 const claimTask10kBtn = document.getElementById("claimTask10k");
 const claimTask1mBtn = document.getElementById("claimTask1m");
+const claimTask4ClickBtn = document.getElementById("claimTask4Click");
 const claimTaskBuy1UpgradeBtn = document.getElementById("claimTaskBuy1Upgrade");
 const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
 const claimTask5000EnergyBtn = document.getElementById("claimTask5000Energy");
@@ -1224,6 +1235,7 @@ function getSavePayload(){
     energyUpgradeCount: energyUpgradeCount,
     task10kDone: task10kDone,
     task1mDone: task1mDone,
+    task4ClickDone: task4ClickDone,
     reached1m: reached1m,
     taskBuy1UpgradeDone: taskBuy1UpgradeDone,
     taskEmptyEnergyDone: taskEmptyEnergyDone,
@@ -1253,7 +1265,7 @@ async function loadFromServer(){
     }else if(Number.isFinite(Number(data.clickPower)) && Number(data.clickPower) > 1){
       clickUpgradeLevel = Number(data.clickPower) - 1;
     }else{
-      clickUpgradeLevel = data.boughtClick ? 1 : 0;
+      clickUpgradeLevel = data.boughtClick ? (Number(data.clickPower || 1) - 1) : 0;
     }
 
     if(clickUpgradeLevel < 0) clickUpgradeLevel = 0;
@@ -1277,6 +1289,7 @@ async function loadFromServer(){
 
     task10kDone = !!data.task10kDone;
     task1mDone = !!data.task1mDone;
+    task4ClickDone = !!data.task4ClickDone;
     reached1m = !!data.reached1m;
     taskBuy1UpgradeDone = !!data.taskBuy1UpgradeDone;
     taskEmptyEnergyDone = !!data.taskEmptyEnergyDone;
@@ -1449,6 +1462,13 @@ function applyDoneStates(){
     task1m.classList.remove("done");
   }
 
+  if(task4ClickDone){
+    task4Click.classList.add("done");
+    claimTask4ClickBtn.disabled = true;
+  }else{
+    task4Click.classList.remove("done");
+  }
+
   if(taskBuy1UpgradeDone){
     taskBuy1Upgrade.classList.add("done");
     claimTaskBuy1UpgradeBtn.disabled = true;
@@ -1488,6 +1508,10 @@ function updateUI(){
 
   if(!task1mDone){
     claimTask1mBtn.disabled = !reached1m;
+  }
+
+  if(!task4ClickDone){
+    claimTask4ClickBtn.disabled = !(clickPower >= 4);
   }
 
   if(!taskBuy1UpgradeDone){
@@ -1809,6 +1833,16 @@ function claimTask1m(){
 
   score += 100000;
   task1mDone = true;
+  updateUI();
+  saveGame();
+}
+
+function claimTask4Click(){
+  if(!isLoaded) return;
+  if(task4ClickDone || clickPower < 4) return;
+
+  score += 1500;
+  task4ClickDone = true;
   updateUI();
   saveGame();
 }
