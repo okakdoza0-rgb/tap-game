@@ -27,9 +27,9 @@ const maintenanceInputState = new Map();
 
 /* напоминания */
 const remindedPlayers = new Map();
-const REMIND_AFTER_MS = 5 * 60 * 60 * 1000;   // 5 часов
-const REMIND_REPEAT_MS = 5 * 60 * 60 * 1000;  // повтор тоже через 5 часов
-const REMIND_CHECK_MS = 10 * 60 * 1000;       // проверка каждые 10 минут
+const REMIND_AFTER_MS = 5 * 60 * 60 * 1000;
+const REMIND_REPEAT_MS = 5 * 60 * 60 * 1000;
+const REMIND_CHECK_MS = 10 * 60 * 1000;
 
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
@@ -73,6 +73,23 @@ function getAchievementsText(player) {
   return achievements.join("\n");
 }
 
+function formatDateTime(ms) {
+  const value = Number(ms || 0);
+  if (!value) return "Неизвестно";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Неизвестно";
+
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+
+  const hh = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+
+  return `${dd}.${mm}.${yyyy} ${hh}:${min}`;
+}
+
 /* =========================
    POSTGRES DATABASE
 ========================= */
@@ -109,7 +126,9 @@ const DEFAULT_PLAYER = {
   lastTime: Date.now(),
   nickname: "Игрок",
   referralsCount: 0,
-  referredBy: null
+  referredBy: null,
+  loginCount: 0,
+  lastLoginAt: 0
 };
 
 function toNumber(value, fallback) {
@@ -158,6 +177,8 @@ function normalizePlayer(player = {}) {
   normalized.nickname = String(player.nickname || DEFAULT_PLAYER.nickname).trim() || "Игрок";
   normalized.referralsCount = toNumber(player.referralsCount, 0);
   normalized.referredBy = player.referredBy ? String(player.referredBy).trim() : null;
+  normalized.loginCount = toNumber(player.loginCount, 0);
+  normalized.lastLoginAt = toNumber(player.lastLoginAt, 0);
 
   if (normalized.score >= 1000000) {
     normalized.reached1m = true;
@@ -179,6 +200,8 @@ function normalizePlayer(player = {}) {
   if (normalized.energyUpgradeCount < 0) normalized.energyUpgradeCount = 0;
   if (normalized.score < 0) normalized.score = 0;
   if (normalized.referralsCount < 0) normalized.referralsCount = 0;
+  if (normalized.loginCount < 0) normalized.loginCount = 0;
+  if (normalized.lastLoginAt < 0) normalized.lastLoginAt = 0;
 
   return normalized;
 }
@@ -221,7 +244,9 @@ async function initDb() {
       last_time BIGINT NOT NULL DEFAULT 0,
       nickname TEXT NOT NULL DEFAULT 'Игрок',
       referrals_count INTEGER NOT NULL DEFAULT 0,
-      referred_by TEXT
+      referred_by TEXT,
+      login_count INTEGER NOT NULL DEFAULT 0,
+      last_login_at BIGINT NOT NULL DEFAULT 0
     )
   `);
 
@@ -233,6 +258,8 @@ async function initDb() {
   await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS reached1m BOOLEAN NOT NULL DEFAULT FALSE`);
   await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS referrals_count INTEGER NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS referred_by TEXT`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS login_count INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS last_login_at BIGINT NOT NULL DEFAULT 0`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS bot_users (
@@ -327,7 +354,9 @@ function rowToPlayer(row) {
     lastTime: Number(row.last_time),
     nickname: row.nickname,
     referralsCount: row.referrals_count,
-    referredBy: row.referred_by
+    referredBy: row.referred_by,
+    loginCount: Number(row.login_count || 0),
+    lastLoginAt: Number(row.last_login_at || 0)
   };
 }
 
@@ -353,9 +382,9 @@ async function createPlayer(id, extra = {}) {
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task1m_done, task4click_done, task3refs_done, reached1m, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
-      referrals_count, referred_by
+      referrals_count, referred_by, login_count, last_login_at
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28
     )
     ON CONFLICT (id) DO NOTHING`,
     [
@@ -384,7 +413,9 @@ async function createPlayer(id, extra = {}) {
       p.lastTime,
       p.nickname,
       p.referralsCount,
-      p.referredBy
+      p.referredBy,
+      p.loginCount,
+      p.lastLoginAt
     ]
   );
 }
@@ -412,9 +443,9 @@ async function savePlayer(id, playerData) {
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task1m_done, task4click_done, task3refs_done, reached1m, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
-      referrals_count, referred_by
+      referrals_count, referred_by, login_count, last_login_at
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28
     )
     ON CONFLICT (id) DO UPDATE SET
       score = EXCLUDED.score,
@@ -441,7 +472,9 @@ async function savePlayer(id, playerData) {
       last_time = EXCLUDED.last_time,
       nickname = EXCLUDED.nickname,
       referrals_count = EXCLUDED.referrals_count,
-      referred_by = EXCLUDED.referred_by`,
+      referred_by = EXCLUDED.referred_by,
+      login_count = EXCLUDED.login_count,
+      last_login_at = EXCLUDED.last_login_at`,
     [
       id,
       p.score,
@@ -468,7 +501,9 @@ async function savePlayer(id, playerData) {
       Date.now(),
       p.nickname,
       p.referralsCount,
-      p.referredBy
+      p.referredBy,
+      p.loginCount,
+      p.lastLoginAt
     ]
   );
 
@@ -853,13 +888,20 @@ bot.onText(/^\/start(?:\s+(.+))?$/, async (msg, match) => {
     const startedBefore = await hasBotStartedBefore(playerId);
 
     let player = await getPlayer(playerId);
+
     if (!player) {
-      await createPlayer(playerId, { nickname });
+      await createPlayer(playerId, {
+        nickname,
+        loginCount: 1,
+        lastLoginAt: Date.now()
+      });
       player = await getPlayer(playerId);
-    } else if (!player.nickname || player.nickname === "Игрок") {
+    } else {
       player = await savePlayer(playerId, {
         ...player,
-        nickname
+        nickname,
+        loginCount: Number(player.loginCount || 0) + 1,
+        lastLoginAt: Date.now()
       });
     }
 
@@ -1029,6 +1071,15 @@ bot.onText(/^\/admin$/, (msg) => {
 /profile ID
 ➜ Посмотреть профиль игрока
 
+/logins ID
+➜ Сколько раз игрок заходил
+
+/lastlogin ID
+➜ Последний вход игрока
+
+/promohistory ID
+➜ История промокодов игрока
+
 /deleteplayer ID ТЕКСТ
 ➜ Полностью удалить игрока
 
@@ -1080,6 +1131,95 @@ bot.onText(/^\/admin$/, (msg) => {
 /online
 ➜ Кто сейчас в игре`
   );
+});
+
+bot.onText(/^\/logins\s+(\S+)$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1] || "").trim();
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    const player = await getOrCreatePlayer(playerId);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `👤 Игрок: ${playerId}\n📊 Заходил в игру: ${player.loginCount || 0} раз`
+    );
+  } catch (error) {
+    console.log("Ошибка /logins:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при получении входов");
+  }
+});
+
+bot.onText(/^\/lastlogin\s+(\S+)$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1] || "").trim();
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    const player = await getOrCreatePlayer(playerId);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `👤 Игрок: ${playerId}\n🕒 Последний вход: ${formatDateTime(player.lastLoginAt)}`
+    );
+  } catch (error) {
+    console.log("Ошибка /lastlogin:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при получении последнего входа");
+  }
+});
+
+bot.onText(/^\/promohistory\s+(\S+)$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1] || "").trim();
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    const result = await pool.query(
+      `SELECT code, activated_at
+       FROM promo_activations
+       WHERE player_id = $1
+       ORDER BY activated_at DESC
+       LIMIT 30`,
+      [playerId]
+    );
+
+    if (!result.rows.length) {
+      return bot.sendMessage(
+        msg.chat.id,
+        `🎟 Игрок ${playerId} ещё не активировал промокоды`
+      );
+    }
+
+    const text = result.rows
+      .map((row, index) => {
+        return `${index + 1}. ${row.code} — ${formatDateTime(row.activated_at)}`;
+      })
+      .join("\n");
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `🎟 История промокодов игрока ${playerId}:\n\n${text}`
+    );
+  } catch (error) {
+    console.log("Ошибка /promohistory:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при получении истории промокодов");
+  }
 });
 
 bot.onText(/^\/createpromo$/, async (msg) => {
@@ -1535,6 +1675,8 @@ bot.onText(/^\/profile\s+(\S+)$/, async (msg, match) => {
 ⚡ Реген энергии: ${getEnergyRegenText(player)}
 👥 Рефералов: ${player.referralsCount || 0}
 🔗 Пришёл от: ${player.referredBy || "Никого"}
+📊 Входов: ${player.loginCount || 0}
+🕒 Последний вход: ${formatDateTime(player.lastLoginAt)}
 🚫 Бан: ${banned ? "Да" : "Нет"}${banned?.reason ? `\n📄 Причина бана: ${banned.reason}` : ""}
 
 🏆 Достижения:
@@ -1838,6 +1980,8 @@ app.post("/save/:id", async (req, res) => {
       nickname: newData.nickname || oldPlayer.nickname,
       referralsCount: newData.referralsCount ?? oldPlayer.referralsCount,
       referredBy: oldPlayer.referredBy,
+      loginCount: oldPlayer.loginCount,
+      lastLoginAt: oldPlayer.lastLoginAt,
       task10kDone: newData.task10kDone ?? oldPlayer.task10kDone,
       task1mDone: newData.task1mDone ?? oldPlayer.task1mDone,
       task4ClickDone: newData.task4ClickDone ?? oldPlayer.task4ClickDone,
