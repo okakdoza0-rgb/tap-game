@@ -25,10 +25,11 @@ const promoCreationState = new Map();
 const promoInputState = new Map();
 const maintenanceInputState = new Map();
 
+/* напоминания */
 const remindedPlayers = new Map();
-const REMIND_AFTER_MS = 60 * 1000; // 1 минута
-const REMIND_REPEAT_MS = 60 * 60 * 1000; // повтор через 1 час
-const REMIND_CHECK_MS = 15 * 1000; // проверка каждые 15 сек
+const REMIND_AFTER_MS = 5 * 60 * 60 * 1000;   // 5 часов
+const REMIND_REPEAT_MS = 5 * 60 * 60 * 1000;  // повтор тоже через 5 часов
+const REMIND_CHECK_MS = 10 * 60 * 1000;       // проверка каждые 10 минут
 
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
