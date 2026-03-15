@@ -1947,6 +1947,59 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
+   INACTIVE PLAYER REMINDER
+========================= */
+
+async function remindInactivePlayers() {
+  try {
+
+    const result = await pool.query(`
+      SELECT id, nickname, last_time
+      FROM players
+    `);
+
+    const now = Date.now();
+
+    for (const row of result.rows) {
+
+      const playerId = String(row.id);
+      const lastTime = Number(row.last_time || 0);
+
+      const diff = now - lastTime;
+
+      // если игрок не заходил 6 часов
+      if (diff > 6 * 60 * 60 * 1000) {
+
+        try {
+
+          await bot.sendMessage(
+            playerId,
+`⚡ Энергия восстановилась!
+
+🎮 Возвращайся в *ArTap*
+и продолжай зарабатывать монеты!`,
+            { parse_mode: "Markdown" }
+          );
+
+          console.log("Напоминание отправлено:", playerId);
+
+        } catch (err) {
+          console.log("Ошибка отправки:", playerId);
+        }
+
+      }
+
+    }
+
+  } catch (error) {
+    console.log("Ошибка напоминаний:", error);
+  }
+}
+
+// проверка каждые 30 минут
+setInterval(remindInactivePlayers, 30 * 60 * 1000);
+
+/* =========================
    START
 ========================= */
 
