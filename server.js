@@ -280,6 +280,14 @@ async function initDb() {
   `, [Date.now()]);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS banned_players (
+      id TEXT PRIMARY KEY,
+      reason TEXT,
+      banned_at BIGINT NOT NULL DEFAULT 0
+    )
+  `);
+
+  await pool.query(`
     INSERT INTO bot_users (id, first_started_at)
     SELECT id, COALESCE(last_time, 0)
     FROM players
@@ -510,6 +518,58 @@ async function getOnlinePlayers() {
 }
 
 /* =========================
+   BAN HELPERS
+========================= */
+
+async function isPlayerBanned(id) {
+  const result = await pool.query(
+    `SELECT id, reason, banned_at
+     FROM banned_players
+     WHERE id = $1
+     LIMIT 1`,
+    [id]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function banPlayer(id, reason = "") {
+  const safeReason = String(reason || "").trim();
+
+  await pool.query(
+    `INSERT INTO banned_players (id, reason, banned_at)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO UPDATE SET
+       reason = EXCLUDED.reason,
+       banned_at = EXCLUDED.banned_at`,
+    [id, safeReason, Date.now()]
+  );
+
+  return isPlayerBanned(id);
+}
+
+async function unbanPlayer(id) {
+  const result = await pool.query(
+    `DELETE FROM banned_players WHERE id = $1`,
+    [id]
+  );
+
+  return result.rowCount > 0;
+}
+
+async function resetPlayerCoins(id) {
+  const player = await getOrCreatePlayer(id);
+
+  const updatedPlayer = {
+    ...player,
+    score: 0,
+    lastTime: Date.now()
+  };
+
+  return savePlayer(id, updatedPlayer);
+}
+
+/* =========================
    PROMO HELPERS
 ========================= */
 
@@ -665,6 +725,14 @@ async function handlePromoActivation(chatId, playerId, nickname, rawCode) {
     return bot.sendMessage(chatId, "❌ Промокод пустой");
   }
 
+  const banned = await isPlayerBanned(playerId);
+  if (banned) {
+    return bot.sendMessage(
+      chatId,
+      `⛔ Ты заблокирован в игре${banned.reason ? `\nПричина: ${banned.reason}` : ""}`
+    );
+  }
+
   const result = await activatePromoCode({
     code: rawCode,
     playerId,
@@ -768,6 +836,14 @@ bot.onText(/^\/start(?:\s+(.+))?$/, async (msg, match) => {
   const startParam = String(match?.[1] || "").trim();
 
   try {
+    const banned = await isPlayerBanned(playerId);
+    if (banned) {
+      return bot.sendMessage(
+        msg.chat.id,
+        `⛔ Ты заблокирован в игре${banned.reason ? `\nПричина: ${banned.reason}` : ""}`
+      );
+    }
+
     const startedBefore = await hasBotStartedBefore(playerId);
 
     let player = await getPlayer(playerId);
@@ -843,8 +919,17 @@ bot.onText(/^\/start(?:\s+(.+))?$/, async (msg, match) => {
 
 bot.onText(/^\/ref$/, async (msg) => {
   try {
-    const me = await bot.getMe();
     const playerId = String(msg.from.id);
+    const banned = await isPlayerBanned(playerId);
+
+    if (banned) {
+      return bot.sendMessage(
+        msg.chat.id,
+        `⛔ Ты заблокирован в игре${banned.reason ? `\nПричина: ${banned.reason}` : ""}`
+      );
+    }
+
+    const me = await bot.getMe();
 
     const player = await getOrCreatePlayer(playerId, {
       nickname: getTelegramNickname(msg.from)
@@ -873,6 +958,14 @@ bot.onText(/^\/promo$/, async (msg) => {
   try {
     const playerId = String(msg.from.id);
     const nickname = getTelegramNickname(msg.from);
+    const banned = await isPlayerBanned(playerId);
+
+    if (banned) {
+      return bot.sendMessage(
+        msg.chat.id,
+        `⛔ Ты заблокирован в игре${banned.reason ? `\nПричина: ${banned.reason}` : ""}`
+      );
+    }
 
     await updateOnlinePlayer(playerId, nickname);
 
@@ -939,6 +1032,15 @@ bot.onText(/^\/admin$/, (msg) => {
 
 /deleteplayer ID ТЕКСТ
 ➜ Полностью удалить игрока
+
+/ban ID ПРИЧИНА
+➜ Забанить игрока
+
+/unban ID
+➜ Разбанить игрока
+
+/resetcoins ID
+➜ Сбросить монеты игроку
 
 /createpromo
 ➜ Создать промокод через вопросы
@@ -1112,6 +1214,118 @@ bot.onText(/^\/maintenancetext$/i, async (msg) => {
   );
 });
 
+bot.onText(/^\/ban\s+(\S+)(?:\s+([\s\S]+))?$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1] || "").trim();
+    const reason = String(match[2] || "").trim();
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    if (playerId === String(adminId)) {
+      return bot.sendMessage(msg.chat.id, "❌ Себя забанить нельзя");
+    }
+
+    const banned = await banPlayer(playerId, reason);
+
+    await pool.query("DELETE FROM online_players WHERE id = $1", [playerId]);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `🚫 Игрок ${playerId} забанен${banned?.reason ? `\nПричина: ${banned.reason}` : ""}`
+    );
+
+    try {
+      await bot.sendMessage(
+        playerId,
+        `🚫 Ты заблокирован в ArTap${banned?.reason ? `\nПричина: ${banned.reason}` : ""}`
+      );
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока о бане:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /ban:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при бане игрока");
+  }
+});
+
+bot.onText(/^\/unban\s+(\S+)$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1] || "").trim();
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    const unbanned = await unbanPlayer(playerId);
+
+    if (!unbanned) {
+      return bot.sendMessage(msg.chat.id, "❌ Этот игрок не забанен");
+    }
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `✅ Игрок ${playerId} разбанен`
+    );
+
+    try {
+      await bot.sendMessage(
+        playerId,
+        "✅ Ты разбанен в ArTap"
+      );
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока о разбане:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /unban:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при разбане игрока");
+  }
+});
+
+bot.onText(/^\/resetcoins\s+(\S+)$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1] || "").trim();
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    const savedPlayer = await resetPlayerCoins(playerId);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `🧹 Монеты игрока ${playerId} сброшены\n💰 Теперь у него: ${savedPlayer.score} монет`
+    );
+
+    try {
+      if (String(msg.chat.id) !== playerId) {
+        await bot.sendMessage(
+          playerId,
+          "🧹 Твои монеты в ArTap были сброшены админом"
+        );
+      }
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока о сбросе монет:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /resetcoins:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при сбросе монет");
+  }
+});
+
 bot.onText(/^\/give\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
@@ -1128,6 +1342,11 @@ bot.onText(/^\/give\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return bot.sendMessage(msg.chat.id, "❌ Неверная сумма");
+    }
+
+    const banned = await isPlayerBanned(playerId);
+    if (banned) {
+      return bot.sendMessage(msg.chat.id, "❌ Игрок забанен");
     }
 
     const player = await getOrCreatePlayer(playerId);
@@ -1233,6 +1452,7 @@ bot.onText(/^\/profile\s+(\S+)$/, async (msg, match) => {
 
     const player = await getOrCreatePlayer(playerId);
     const achievementsText = getAchievementsText(player);
+    const banned = await isPlayerBanned(playerId);
 
     await bot.sendMessage(
       msg.chat.id,
@@ -1248,6 +1468,7 @@ bot.onText(/^\/profile\s+(\S+)$/, async (msg, match) => {
 ⚡ Реген энергии: ${getEnergyRegenText(player)}
 👥 Рефералов: ${player.referralsCount || 0}
 🔗 Пришёл от: ${player.referredBy || "Никого"}
+🚫 Бан: ${banned ? "Да" : "Нет"}${banned?.reason ? `\n📄 Причина бана: ${banned.reason}` : ""}
 
 🏆 Достижения:
 ${achievementsText}`
@@ -1495,6 +1716,15 @@ app.get("/load/:id", async (req, res) => {
       return res.status(400).json({ error: "Нет ID игрока" });
     }
 
+    const banned = await isPlayerBanned(id);
+    if (banned) {
+      return res.status(403).json({
+        error: "Игрок забанен",
+        banned: true,
+        reason: banned.reason || ""
+      });
+    }
+
     const player = await getOrCreatePlayer(id);
     return res.json(playerResponse(player));
   } catch (error) {
@@ -1509,6 +1739,15 @@ app.post("/save/:id", async (req, res) => {
 
     if (!id) {
       return res.status(400).json({ error: "Нет ID игрока" });
+    }
+
+    const banned = await isPlayerBanned(id);
+    if (banned) {
+      return res.status(403).json({
+        error: "Игрок забанен",
+        banned: true,
+        reason: banned.reason || ""
+      });
     }
 
     const oldPlayer = await getOrCreatePlayer(id);
@@ -1567,6 +1806,15 @@ app.post("/online/:id", async (req, res) => {
 
     if (!id) {
       return res.status(400).json({ error: "Нет ID игрока" });
+    }
+
+    const banned = await isPlayerBanned(id);
+    if (banned) {
+      return res.status(403).json({
+        error: "Игрок забанен",
+        banned: true,
+        reason: banned.reason || ""
+      });
     }
 
     await updateOnlinePlayer(id, nickname);
