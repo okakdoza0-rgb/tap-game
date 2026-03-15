@@ -847,8 +847,8 @@ cursor:pointer;
     </div>
 
     <div id="taskFastEnergy" class="whiteCard">
-      <div class="whiteCardTitle">⚡ Быстрая энергия</div>
-      <div class="whiteCardText">Энергия восстанавливается быстрее</div>
+      <div class="whiteCardTitle">⚡ Быстрая генерация</div>
+      <div class="whiteCardText">Можно купить 2 раза: сначала 1 энергия / 2 сек, потом 1 энергия / 1 сек</div>
       <div class="whiteCardPrice">Цена: 7000 🪙</div>
       <button id="buyBtnFastEnergy" class="buyBtnWhite" onclick="buyFastEnergy()">Купить</button>
       <div class="redLine"></div>
@@ -1002,6 +1002,8 @@ const MAX_ENERGY_TARGET = 5000;
 const ENERGY_STEP = 500;
 const MAX_ENERGY_UPGRADES = 9;
 const MAX_CLICK_UPGRADES = 3;
+const FAST_ENERGY_PRICE = 7000;
+const FAST_ENERGY_MIN_DELAY = 1000;
 
 let score = 0;
 let clickPower = 1;
@@ -1096,11 +1098,22 @@ function clampGameValues(){
 
   if(incomeSeconds < 1) incomeSeconds = 1;
 
+  if(energyDelay < FAST_ENERGY_MIN_DELAY) energyDelay = FAST_ENERGY_MIN_DELAY;
+  if(energyDelay > 3000) energyDelay = 3000;
+
   if(energyUpgradeCount < 0) energyUpgradeCount = 0;
   if(energyUpgradeCount > MAX_ENERGY_UPGRADES) energyUpgradeCount = MAX_ENERGY_UPGRADES;
 
   if(score < 0) score = 0;
   if(referralsCount < 0) referralsCount = 0;
+
+  fastEnergy = energyDelay < 3000;
+}
+
+function getFastEnergyLevel(){
+  if(energyDelay <= 1000) return 2;
+  if(energyDelay <= 2000) return 1;
+  return 0;
 }
 
 function getTelegramPlayerId(){
@@ -1313,8 +1326,10 @@ async function loadFromServer(){
     boughtSpeed = !!data.boughtSpeed;
     incomeSeconds = Number(data.incomeSeconds) || 5;
 
-    fastEnergy = !!data.fastEnergy;
-    energyDelay = Number(data.energyDelay) || (fastEnergy ? 2000 : 3000);
+    energyDelay = Number(data.energyDelay);
+    if(!Number.isFinite(energyDelay)) energyDelay = 3000;
+
+    fastEnergy = !!data.fastEnergy || energyDelay < 3000;
 
     currentSkin = data.currentSkin || DEFAULT_SKIN;
 
@@ -1424,7 +1439,7 @@ function saveGame(){
 }
 
 function hasAnyUpgradeBought(){
-  return clickUpgradeLevel > 0 || boughtSpeed || energyUpgradeCount > 0 || fastEnergy;
+  return clickUpgradeLevel > 0 || boughtSpeed || energyUpgradeCount > 0 || energyDelay < 3000;
 }
 
 function updateSkinUI(){
@@ -1478,7 +1493,7 @@ function applyDoneStates(){
     buyBtnEnergy.disabled = false;
   }
 
-  if(fastEnergy){
+  if(energyDelay <= FAST_ENERGY_MIN_DELAY){
     taskFastEnergy.classList.add("done");
     buyBtnFastEnergy.disabled = true;
   }else{
@@ -1579,6 +1594,15 @@ function updateUI(){
     buyBtnClick.innerText = "Максимум";
   }else{
     buyBtnClick.innerText = "Купить";
+  }
+
+  const fastEnergyLevel = getFastEnergyLevel();
+  if(fastEnergyLevel === 0){
+    buyBtnFastEnergy.innerText = "Купить 2 сек";
+  }else if(fastEnergyLevel === 1){
+    buyBtnFastEnergy.innerText = "Купить 1 сек";
+  }else{
+    buyBtnFastEnergy.innerText = "Максимум";
   }
 
   applyDoneStates();
@@ -1855,12 +1879,19 @@ function buyEnergyUpgrade(){
 }
 
 function buyFastEnergy(){
-  if(!isLoaded || fastEnergy) return;
+  if(!isLoaded) return;
+  if(energyDelay <= FAST_ENERGY_MIN_DELAY) return;
 
-  if(score >= 7000){
-    score -= 7000;
+  if(score >= FAST_ENERGY_PRICE){
+    score -= FAST_ENERGY_PRICE;
+
+    if(energyDelay > 2000){
+      energyDelay = 2000;
+    }else{
+      energyDelay = 1000;
+    }
+
     fastEnergy = true;
-    energyDelay = 2000;
     updateUI();
     saveGame();
     startEnergyLoop();
@@ -1968,7 +1999,7 @@ function openProfile(){
   document.getElementById("profileMaxEnergy").innerText = maxEnergy;
   document.getElementById("profileIncome").innerText = clickPower;
   document.getElementById("profileSeconds").innerText = incomeSeconds;
-  document.getElementById("profileEnergyRegen").innerText = fastEnergy ? "2" : "3";
+  document.getElementById("profileEnergyRegen").innerText = Math.floor(energyDelay / 1000);
   document.getElementById("profileAvatar").src = currentSkin;
 }
 
