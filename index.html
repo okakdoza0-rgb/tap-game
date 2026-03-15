@@ -787,6 +787,14 @@ cursor:pointer;
       <div class="redLine"></div>
     </div>
 
+    <div id="task3Refs" class="whiteCard">
+      <div class="whiteCardTitle">👥 Пригласи 3 друзей</div>
+      <div class="whiteCardText">Пригласи 3 новых игроков по своей ссылке</div>
+      <div class="whiteCardText">Награда: 2000 🪙</div>
+      <button id="claimTask3Refs" class="buyBtnWhite" onclick="claimTask3Refs()" disabled>Выполнить</button>
+      <div class="redLine"></div>
+    </div>
+
     <div id="taskBuy1Upgrade" class="whiteCard">
       <div class="whiteCardTitle">🛒 Купи 1 улучшение</div>
       <div class="whiteCardText">Награда: 2000 🪙</div>
@@ -1014,6 +1022,7 @@ let energyUpgradeCount = 0;
 let task10kDone = false;
 let task1mDone = false;
 let task4ClickDone = false;
+let task3RefsDone = false;
 let reached1m = false;
 let taskBuy1UpgradeDone = false;
 let taskEmptyEnergyDone = false;
@@ -1047,6 +1056,7 @@ const taskFastEnergy = document.getElementById("taskFastEnergy");
 const task10k = document.getElementById("task10k");
 const task1m = document.getElementById("task1m");
 const task4Click = document.getElementById("task4Click");
+const task3Refs = document.getElementById("task3Refs");
 const taskBuy1Upgrade = document.getElementById("taskBuy1Upgrade");
 const taskEmptyEnergy = document.getElementById("taskEmptyEnergy");
 const task5000Energy = document.getElementById("task5000Energy");
@@ -1059,6 +1069,7 @@ const buyBtnFastEnergy = document.getElementById("buyBtnFastEnergy");
 const claimTask10kBtn = document.getElementById("claimTask10k");
 const claimTask1mBtn = document.getElementById("claimTask1m");
 const claimTask4ClickBtn = document.getElementById("claimTask4Click");
+const claimTask3RefsBtn = document.getElementById("claimTask3Refs");
 const claimTaskBuy1UpgradeBtn = document.getElementById("claimTaskBuy1Upgrade");
 const claimTaskEmptyEnergyBtn = document.getElementById("claimTaskEmptyEnergy");
 const claimTask5000EnergyBtn = document.getElementById("claimTask5000Energy");
@@ -1236,6 +1247,7 @@ function getSavePayload(){
     task10kDone: task10kDone,
     task1mDone: task1mDone,
     task4ClickDone: task4ClickDone,
+    task3RefsDone: task3RefsDone,
     reached1m: reached1m,
     taskBuy1UpgradeDone: taskBuy1UpgradeDone,
     taskEmptyEnergyDone: taskEmptyEnergyDone,
@@ -1290,6 +1302,7 @@ async function loadFromServer(){
     task10kDone = !!data.task10kDone;
     task1mDone = !!data.task1mDone;
     task4ClickDone = !!data.task4ClickDone;
+    task3RefsDone = !!data.task3RefsDone;
     reached1m = !!data.reached1m;
     taskBuy1UpgradeDone = !!data.taskBuy1UpgradeDone;
     taskEmptyEnergyDone = !!data.taskEmptyEnergyDone;
@@ -1469,6 +1482,13 @@ function applyDoneStates(){
     task4Click.classList.remove("done");
   }
 
+  if(task3RefsDone){
+    task3Refs.classList.add("done");
+    claimTask3RefsBtn.disabled = true;
+  }else{
+    task3Refs.classList.remove("done");
+  }
+
   if(taskBuy1UpgradeDone){
     taskBuy1Upgrade.classList.add("done");
     claimTaskBuy1UpgradeBtn.disabled = true;
@@ -1512,6 +1532,10 @@ function updateUI(){
 
   if(!task4ClickDone){
     claimTask4ClickBtn.disabled = !(clickPower >= 4);
+  }
+
+  if(!task3RefsDone){
+    claimTask3RefsBtn.disabled = !(referralsCount >= 3);
   }
 
   if(!taskBuy1UpgradeDone){
@@ -1843,6 +1867,16 @@ function claimTask4Click(){
 
   score += 1500;
   task4ClickDone = true;
+  updateUI();
+  saveGame();
+}
+
+function claimTask3Refs(){
+  if(!isLoaded) return;
+  if(task3RefsDone || referralsCount < 3) return;
+
+  score += 2000;
+  task3RefsDone = true;
   updateUI();
   saveGame();
 }
