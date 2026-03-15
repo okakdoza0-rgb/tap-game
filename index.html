@@ -726,7 +726,6 @@ color:white;
 cursor:pointer;
 }
 
-/* maintenance */
 #maintenanceBox{
 position:fixed;
 inset:0;
@@ -761,6 +760,41 @@ line-height:1.5;
 opacity:0.98;
 white-space:pre-line;
 }
+
+#banBox{
+position:fixed;
+inset:0;
+display:none;
+justify-content:center;
+align-items:center;
+background:rgba(0,0,0,0.82);
+z-index:600;
+padding:20px;
+box-sizing:border-box;
+}
+
+#banCard{
+width:340px;
+max-width:100%;
+background:#1f2230;
+border-radius:28px;
+padding:28px 22px;
+text-align:center;
+box-shadow:0 10px 40px rgba(0,0,0,0.55);
+color:white;
+}
+
+#banTitle{
+font-size:30px;
+font-weight:bold;
+margin-bottom:14px;
+}
+
+#banText{
+font-size:18px;
+line-height:1.5;
+white-space:pre-line;
+}
 </style>
 </head>
 
@@ -770,6 +804,13 @@ white-space:pre-line;
   <div id="maintenanceCard">
     <div id="maintenanceTitle">🔧 Техработы</div>
     <div id="maintenanceText">Сейчас идут техработы. Зайди позже.</div>
+  </div>
+</div>
+
+<div id="banBox">
+  <div id="banCard">
+    <div id="banTitle">🚫 Блокировка</div>
+    <div id="banText">Ты заблокирован в игре</div>
   </div>
 </div>
 
@@ -1088,6 +1129,7 @@ let referralsCount = 0;
 let tutorialDone = false;
 let onlineInterval = null;
 let maintenanceMode = false;
+let bannedMode = false;
 
 const scoreElement = document.getElementById("scoreNumber");
 const energyElement = document.getElementById("energyNumber");
@@ -1127,11 +1169,7 @@ const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
 const skin3Card = document.getElementById("skin3Card");
 
-function showMaintenance(text){
-  maintenanceMode = true;
-  document.getElementById("maintenanceText").innerText = text || "Сейчас идут техработы. Зайди позже.";
-  document.getElementById("maintenanceBox").style.display = "flex";
-
+function hideMainGame(){
   document.getElementById("topBox").style.display = "none";
   document.getElementById("tap-wrap").style.display = "none";
   document.getElementById("upgradeBtn").style.display = "none";
@@ -1142,13 +1180,43 @@ function showMaintenance(text){
   document.getElementById("tutorialBox").style.display = "none";
 }
 
-function hideMaintenance(){
-  maintenanceMode = false;
-  document.getElementById("maintenanceBox").style.display = "none";
+function showMainGame(){
   document.getElementById("topBox").style.display = "flex";
   document.getElementById("tap-wrap").style.display = "inline-block";
   document.getElementById("upgradeBtn").style.display = "block";
   document.getElementById("profileBtn").style.display = "block";
+}
+
+function showMaintenance(text){
+  maintenanceMode = true;
+  document.getElementById("maintenanceText").innerText = text || "Сейчас идут техработы. Зайди позже.";
+  document.getElementById("maintenanceBox").style.display = "flex";
+  document.getElementById("banBox").style.display = "none";
+  hideMainGame();
+}
+
+function hideMaintenance(){
+  maintenanceMode = false;
+  document.getElementById("maintenanceBox").style.display = "none";
+  if(!bannedMode){
+    showMainGame();
+  }
+}
+
+function showBan(text){
+  bannedMode = true;
+  document.getElementById("banText").innerText = text || "Ты заблокирован в игре";
+  document.getElementById("banBox").style.display = "flex";
+  document.getElementById("maintenanceBox").style.display = "none";
+  hideMainGame();
+}
+
+function hideBan(){
+  bannedMode = false;
+  document.getElementById("banBox").style.display = "none";
+  if(!maintenanceMode){
+    showMainGame();
+  }
 }
 
 async function checkGameStatus(){
@@ -1248,7 +1316,7 @@ function updateReferralUI(){
 }
 
 function checkTutorial(){
-  if(maintenanceMode) return;
+  if(maintenanceMode || bannedMode) return;
 
   const saved = localStorage.getItem("tutorialDone");
   if(!saved){
@@ -1329,7 +1397,7 @@ ${link}`;
 }
 
 async function sendOnlineHeartbeat(){
-  if(!playerId || maintenanceMode) return;
+  if(!playerId || maintenanceMode || bannedMode) return;
 
   let nickname = "Игрок";
   try{
@@ -1398,9 +1466,20 @@ async function loadFromServer(){
       cache: "no-store"
     });
 
+    if(res.status === 403){
+      const banData = await res.json().catch(() => ({}));
+      showBan(
+        "Ты заблокирован в игре" +
+        (banData.reason ? "\nПричина: " + banData.reason : "")
+      );
+      return false;
+    }
+
     if(!res.ok) throw new Error("load error");
 
     const data = await res.json();
+
+    hideBan();
 
     score = Number(data.score) || 0;
 
@@ -1471,24 +1550,34 @@ async function loadFromServer(){
     serverReady = true;
     isLoaded = true;
     updateUI();
+    return true;
   }catch(err){
     console.log("Ошибка загрузки:", err);
     alert("Не удалось загрузить прогресс игрока");
+    return false;
   }
 }
 
 async function saveToServer(){
-  if(!playerId || isSaving || maintenanceMode) return;
+  if(!playerId || isSaving || maintenanceMode || bannedMode) return;
   isSaving = true;
 
   try{
-    await fetch(API_BASE + "/save/" + encodeURIComponent(playerId), {
+    const res = await fetch(API_BASE + "/save/" + encodeURIComponent(playerId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify(getSavePayload())
     });
+
+    if(res.status === 403){
+      const banData = await res.json().catch(() => ({}));
+      showBan(
+        "Ты заблокирован в игре" +
+        (banData.reason ? "\nПричина: " + banData.reason : "")
+      );
+    }
   }catch(err){
     console.log("Ошибка сохранения:", err);
   }finally{
@@ -1497,7 +1586,7 @@ async function saveToServer(){
 }
 
 function saveToServerFast(){
-  if(!playerId || maintenanceMode) return;
+  if(!playerId || maintenanceMode || bannedMode) return;
 
   const url = API_BASE + "/save/" + encodeURIComponent(playerId);
   const payload = JSON.stringify(getSavePayload());
@@ -1527,7 +1616,7 @@ function saveToServerFast(){
 }
 
 function saveGame(){
-  if(serverReady && !maintenanceMode){
+  if(serverReady && !maintenanceMode && !bannedMode){
     saveToServer();
   }
 }
@@ -1557,7 +1646,7 @@ function updateSkinUI(){
 }
 
 function setSkin(filename){
-  if(maintenanceMode) return;
+  if(maintenanceMode || bannedMode) return;
   currentSkin = filename;
   updateSkinUI();
   saveGame();
@@ -1709,7 +1798,7 @@ function startIncomeLoop(){
   if(incomeInterval) clearInterval(incomeInterval);
 
   incomeInterval = setInterval(() => {
-    if(!isLoaded || maintenanceMode) return;
+    if(!isLoaded || maintenanceMode || bannedMode) return;
     score += clickPower;
     updateUI();
     saveGame();
@@ -1720,7 +1809,7 @@ function startEnergyLoop(){
   if(energyInterval) clearInterval(energyInterval);
 
   energyInterval = setInterval(() => {
-    if(!isLoaded || maintenanceMode) return;
+    if(!isLoaded || maintenanceMode || bannedMode) return;
     if(energy < maxEnergy){
       energy += 1;
       updateUI();
@@ -1733,13 +1822,13 @@ function startAutosaveLoop(){
   if(autosaveInterval) clearInterval(autosaveInterval);
 
   autosaveInterval = setInterval(() => {
-    if(!isLoaded || maintenanceMode) return;
+    if(!isLoaded || maintenanceMode || bannedMode) return;
     saveGame();
   }, 8000);
 }
 
 function tap(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
 
   sendOnlineHeartbeat();
 
@@ -1768,7 +1857,7 @@ function tap(){
 }
 
 function openUpgrades(){
-  if(maintenanceMode) return;
+  if(maintenanceMode || bannedMode) return;
   sendOnlineHeartbeat();
   document.getElementById("upgradeScreen").style.display = "flex";
   showUpgradesTab();
@@ -1915,7 +2004,7 @@ function escapeHtml(text){
 }
 
 function buyClickUpgrade(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(clickUpgradeLevel >= MAX_CLICK_UPGRADES) return;
 
   if(score >= 5000){
@@ -1935,7 +2024,7 @@ function buyClickUpgrade(){
 }
 
 function buySpeedUpgrade(){
-  if(!isLoaded || maintenanceMode || boughtSpeed) return;
+  if(!isLoaded || maintenanceMode || bannedMode || boughtSpeed) return;
 
   if(score >= 1500){
     score -= 1500;
@@ -1950,7 +2039,7 @@ function buySpeedUpgrade(){
 }
 
 function buyEnergyUpgrade(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(energyUpgradeCount >= MAX_ENERGY_UPGRADES || maxEnergy >= MAX_ENERGY_TARGET) return;
 
   if(score >= 6500){
@@ -1975,7 +2064,7 @@ function buyEnergyUpgrade(){
 }
 
 function buyFastEnergy(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(energyDelay <= FAST_ENERGY_MIN_DELAY) return;
 
   if(score >= FAST_ENERGY_PRICE){
@@ -1997,7 +2086,7 @@ function buyFastEnergy(){
 }
 
 function claimTask10k(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(task10kDone || score < 10000) return;
 
   score += 500;
@@ -2007,7 +2096,7 @@ function claimTask10k(){
 }
 
 function claimTask1m(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(task1mDone || !reached1m) return;
 
   score += 100000;
@@ -2017,7 +2106,7 @@ function claimTask1m(){
 }
 
 function claimTask4Click(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(task4ClickDone || clickPower < 4) return;
 
   score += 1500;
@@ -2027,7 +2116,7 @@ function claimTask4Click(){
 }
 
 function claimTask3Refs(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(task3RefsDone || referralsCount < 3) return;
 
   score += 2000;
@@ -2037,7 +2126,7 @@ function claimTask3Refs(){
 }
 
 function claimTaskBuy1Upgrade(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(taskBuy1UpgradeDone || !hasAnyUpgradeBought()) return;
 
   score += 2000;
@@ -2047,7 +2136,7 @@ function claimTaskBuy1Upgrade(){
 }
 
 function claimTaskEmptyEnergy(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(taskEmptyEnergyDone || !(energyWasZero || energy === 0)) return;
 
   score += 2000;
@@ -2057,7 +2146,7 @@ function claimTaskEmptyEnergy(){
 }
 
 function claimTask5000Energy(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   if(task5000EnergyDone || maxEnergy < MAX_ENERGY_TARGET) return;
 
   score += 2500;
@@ -2067,7 +2156,7 @@ function claimTask5000Energy(){
 }
 
 function claimOffline(){
-  if(!isLoaded || maintenanceMode) return;
+  if(!isLoaded || maintenanceMode || bannedMode) return;
   score += offlineCoins;
   offlineCoins = 0;
   updateUI();
@@ -2076,7 +2165,7 @@ function claimOffline(){
 }
 
 function openProfile(){
-  if(maintenanceMode) return;
+  if(maintenanceMode || bannedMode) return;
   sendOnlineHeartbeat();
   document.getElementById("profileScreen").style.display = "flex";
 
@@ -2116,19 +2205,19 @@ function formatCoins(value){
 }
 
 window.addEventListener("beforeunload", () => {
-  if(serverReady && !maintenanceMode) saveToServerFast();
+  if(serverReady && !maintenanceMode && !bannedMode) saveToServerFast();
 });
 
 window.addEventListener("pagehide", () => {
-  if(serverReady && !maintenanceMode) saveToServerFast();
+  if(serverReady && !maintenanceMode && !bannedMode) saveToServerFast();
 });
 
 document.addEventListener("visibilitychange", async () => {
-  if(document.hidden && serverReady && !maintenanceMode){
+  if(document.hidden && serverReady && !maintenanceMode && !bannedMode){
     saveToServerFast();
   }else if(!document.hidden){
     const gameOpen = await checkGameStatus();
-    if(gameOpen && serverReady){
+    if(gameOpen && serverReady && !bannedMode){
       sendOnlineHeartbeat();
     }
   }
@@ -2143,12 +2232,17 @@ async function initGame(){
   }
 
   updateReferralUI();
-  await loadFromServer();
+
+  const loaded = await loadFromServer();
+  if(!loaded){
+    return;
+  }
 
   sendOnlineHeartbeat();
 
   if(onlineInterval) clearInterval(onlineInterval);
   onlineInterval = setInterval(async () => {
+    if(bannedMode) return;
     const stillOpen = await checkGameStatus();
     if(stillOpen){
       sendOnlineHeartbeat();
