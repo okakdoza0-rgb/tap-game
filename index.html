@@ -1041,6 +1041,7 @@ let isLoaded = false;
 let isSaving = false;
 let referralsCount = 0;
 let tutorialDone = false;
+let onlineInterval = null;
 
 const scoreElement = document.getElementById("scoreNumber");
 const energyElement = document.getElementById("energyNumber");
@@ -1218,6 +1219,30 @@ ${link}`;
   }catch(e){}
 
   copyReferralLink();
+}
+
+async function sendOnlineHeartbeat(){
+  if(!playerId) return;
+
+  let nickname = "Игрок";
+  try{
+    if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe?.user){
+      const user = window.Telegram.WebApp.initDataUnsafe.user;
+      nickname = user.first_name || user.username || "Игрок";
+    }
+  }catch(e){}
+
+  try{
+    await fetch(API_BASE + "/online/" + encodeURIComponent(playerId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ nickname: nickname })
+    });
+  }catch(err){
+    console.log("Ошибка heartbeat:", err);
+  }
 }
 
 function getSavePayload(){
@@ -1597,6 +1622,8 @@ function startAutosaveLoop(){
 function tap(){
   if(!isLoaded) return;
 
+  sendOnlineHeartbeat();
+
   const energyCost = 1;
   if(energy < energyCost) return;
 
@@ -1622,6 +1649,7 @@ function tap(){
 }
 
 function openUpgrades(){
+  sendOnlineHeartbeat();
   document.getElementById("upgradeScreen").style.display = "flex";
   showUpgradesTab();
 }
@@ -1921,6 +1949,7 @@ function claimOffline(){
 }
 
 function openProfile(){
+  sendOnlineHeartbeat();
   document.getElementById("profileScreen").style.display = "flex";
 
   let tgName = "Игрок";
@@ -1969,6 +1998,8 @@ window.addEventListener("pagehide", () => {
 document.addEventListener("visibilitychange", () => {
   if(document.hidden && serverReady){
     saveToServerFast();
+  }else if(!document.hidden && serverReady){
+    sendOnlineHeartbeat();
   }
 });
 
@@ -1976,6 +2007,14 @@ async function initGame(){
   playerId = getTelegramPlayerId();
   updateReferralUI();
   await loadFromServer();
+
+  sendOnlineHeartbeat();
+
+  if(onlineInterval) clearInterval(onlineInterval);
+  onlineInterval = setInterval(() => {
+    sendOnlineHeartbeat();
+  }, 10000);
+
   startIncomeLoop();
   startEnergyLoop();
   startAutosaveLoop();
