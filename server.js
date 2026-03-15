@@ -25,10 +25,10 @@ const promoCreationState = new Map();
 const promoInputState = new Map();
 const maintenanceInputState = new Map();
 
-/* чтобы не слать напоминание одному и тому же игроку каждые 30 минут */
 const remindedPlayers = new Map();
-const REMIND_AFTER_MS = 60 * 1000;
-const REMIND_REPEAT_MS = 60 * 1000;
+const REMIND_AFTER_MS = 60 * 1000; // 1 минута
+const REMIND_REPEAT_MS = 60 * 60 * 1000; // повтор через 1 час
+const REMIND_CHECK_MS = 15 * 1000; // проверка каждые 15 сек
 
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
@@ -471,7 +471,6 @@ async function savePlayer(id, playerData) {
     ]
   );
 
-  remindedPlayers.delete(String(id));
   return getOrCreatePlayer(id);
 }
 
@@ -865,17 +864,10 @@ bot.onText(/^\/start(?:\s+(.+))?$/, async (msg, match) => {
 
     await updateOnlinePlayer(playerId, nickname);
 
-    if (
-      !startedBefore &&
-      startParam.startsWith("ref_")
-    ) {
+    if (!startedBefore && startParam.startsWith("ref_")) {
       const inviterId = startParam.replace("ref_", "").trim();
 
-      if (
-        inviterId &&
-        inviterId !== playerId &&
-        !player.referredBy
-      ) {
+      if (inviterId && inviterId !== playerId && !player.referredBy) {
         const inviter = await getPlayer(inviterId);
 
         if (inviter) {
@@ -911,10 +903,10 @@ bot.onText(/^\/start(?:\s+(.+))?$/, async (msg, match) => {
     msg.chat.id,
 `🎮 Добро пожаловать в *ArTap!*
 
-👆 Тапай по Artemwe  
-🪙 Зарабатывай монеты  
-⚡ Прокачивай силу клика  
-🏆 Стань лучшим игроком  
+👆 Тапай по Artemwe
+🪙 Зарабатывай монеты
+⚡ Прокачивай силу клика
+🏆 Стань лучшим игроком
 
 🚀 Начни играть прямо сейчас!`,
     {
@@ -1352,7 +1344,7 @@ bot.onText(/^\/broadcast\s+([\s\S]+)$/i, async (msg, match) => {
     );
 
     const allUsers = result.rows
-      .map(row => String(row.id || "").trim())
+      .map((row) => String(row.id || "").trim())
       .filter(Boolean);
 
     if (!allUsers.length) {
@@ -1387,7 +1379,7 @@ bot.onText(/^\/broadcast\s+([\s\S]+)$/i, async (msg, match) => {
         console.log(`Ошибка рассылки игроку ${userId}:`, error.message);
       }
 
-      await new Promise(resolve => setTimeout(resolve, 40));
+      await new Promise((resolve) => setTimeout(resolve, 40));
     }
 
     await bot.sendMessage(
@@ -1573,7 +1565,6 @@ bot.onText(/^\/deleteplayer\s+(\S+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
     }
 
     users.delete(Number(playerId));
-    remindedPlayers.delete(String(playerId));
     await pool.query("DELETE FROM online_players WHERE id = $1", [playerId]);
 
     await bot.sendMessage(
@@ -1970,19 +1961,21 @@ async function remindInactivePlayers() {
       const playerId = String(row.id || "").trim();
       const lastTime = Number(row.last_time || 0);
 
-      if (!playerId) continue;
+      if (!playerId || !lastTime) continue;
 
       const banned = await isPlayerBanned(playerId);
       if (banned) continue;
 
       const diff = now - lastTime;
+
       if (diff < REMIND_AFTER_MS) {
         remindedPlayers.delete(playerId);
         continue;
       }
 
-      const lastRemindedAt = Number(remindedPlayers.get(playerId) || 0);
-      if (lastRemindedAt && now - lastRemindedAt < REMIND_REPEAT_MS) {
+      const lastRemindedAt = remindedPlayers.get(playerId) || 0;
+
+      if (now - lastRemindedAt < REMIND_REPEAT_MS) {
         continue;
       }
 
@@ -2007,6 +2000,9 @@ async function remindInactivePlayers() {
   }
 }
 
+setTimeout(remindInactivePlayers, 10000);
+setInterval(remindInactivePlayers, REMIND_CHECK_MS);
+
 /* =========================
    START
 ========================= */
@@ -2016,9 +2012,6 @@ initDb()
     app.listen(PORT, () => {
       console.log("Server started on port " + PORT);
     });
-
-    setTimeout(remindInactivePlayers, 10000);
-    setInterval(remindInactivePlayers, 30 * 60 * 1000);
   })
   .catch((error) => {
     console.log("Ошибка запуска БД:", error);
