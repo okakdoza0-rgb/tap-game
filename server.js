@@ -616,16 +616,16 @@ bot.onText(/\/admin/, (msg) => {
     msg.chat.id,
 `⚙️ Админ команды ArTap
 
-/give ID СУММА
+/give ID СУММА ТЕКСТ
 ➜ Выдать монеты игроку
 
-/take ID СУММА
+/take ID СУММА ТЕКСТ
 ➜ Забрать монеты у игрока
 
 /profile ID
 ➜ Посмотреть профиль игрока
 
-/deleteplayer ID
+/deleteplayer ID ТЕКСТ
 ➜ Полностью удалить игрока
 
 /players
@@ -636,7 +636,7 @@ bot.onText(/\/admin/, (msg) => {
   );
 });
 
-bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
+bot.onText(/\/give\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -644,6 +644,7 @@ bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
   try {
     const playerId = String(match[1]).trim();
     const amount = Math.floor(Number(match[2]));
+    const extraText = String(match[3] || "").trim();
 
     if (!playerId) {
       return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
@@ -665,14 +666,17 @@ bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
 
     await bot.sendMessage(
       msg.chat.id,
-      `✅ Игроку ${playerId} начислено ${amount} монет\n💰 Теперь у него: ${savedPlayer.score} монет`
+      `✅ Игроку ${playerId} начислено ${amount} монет` +
+      `${extraText ? `\n💬 ${extraText}` : ""}` +
+      `\n💰 Теперь у него: ${savedPlayer.score} монет`
     );
 
     try {
       if (String(msg.chat.id) !== playerId) {
         await bot.sendMessage(
           playerId,
-          `🎁 Вам начислено ${amount} монет в ArTap!`
+          `🎁 Вам начислено ${amount} монет в ArTap!` +
+          `${extraText ? `\n💬 ${extraText}` : ""}`
         );
       }
     } catch (notifyError) {
@@ -684,7 +688,7 @@ bot.onText(/\/give\s+(\S+)\s+(\d+)/, async (msg, match) => {
   }
 });
 
-bot.onText(/\/take\s+(\S+)\s+(\d+)/, async (msg, match) => {
+bot.onText(/\/take\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -692,6 +696,7 @@ bot.onText(/\/take\s+(\S+)\s+(\d+)/, async (msg, match) => {
   try {
     const playerId = String(match[1]).trim();
     const amount = Math.floor(Number(match[2]));
+    const extraText = String(match[3] || "").trim();
 
     if (!playerId) {
       return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
@@ -716,14 +721,17 @@ bot.onText(/\/take\s+(\S+)\s+(\d+)/, async (msg, match) => {
 
     await bot.sendMessage(
       msg.chat.id,
-      `➖ У игрока ${playerId} снято ${removed} монет\n💰 Теперь у него: ${savedPlayer.score} монет`
+      `➖ У игрока ${playerId} снято ${removed} монет` +
+      `${extraText ? `\n💬 ${extraText}` : ""}` +
+      `\n💰 Теперь у него: ${savedPlayer.score} монет`
     );
 
     try {
       if (String(msg.chat.id) !== playerId) {
         await bot.sendMessage(
           playerId,
-          `➖ У вас снято ${removed} монет в ArTap`
+          `➖ У вас снято ${removed} монет в ArTap` +
+          `${extraText ? `\n💬 ${extraText}` : ""}`
         );
       }
     } catch (notifyError) {
@@ -774,13 +782,14 @@ ${achievementsText}`
   }
 });
 
-bot.onText(/\/deleteplayer\s+(\S+)/, async (msg, match) => {
+bot.onText(/\/deleteplayer\s+(\S+)(?:\s+([\s\S]+))?/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
 
   try {
     const playerId = String(match[1]).trim();
+    const extraText = String(match[2] || "").trim();
 
     if (!playerId) {
       return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
@@ -793,19 +802,20 @@ bot.onText(/\/deleteplayer\s+(\S+)/, async (msg, match) => {
     }
 
     users.delete(Number(playerId));
-
     await pool.query("DELETE FROM online_players WHERE id = $1", [playerId]);
 
     await bot.sendMessage(
       msg.chat.id,
-      `🗑 Игрок ${playerId} полностью удалён из игры`
+      `🗑 Игрок ${playerId} полностью удалён из игры` +
+      `${extraText ? `\n💬 ${extraText}` : ""}`
     );
 
     try {
       if (String(msg.chat.id) !== playerId) {
         await bot.sendMessage(
           playerId,
-          `🗑 Ваш профиль удалён из ArTap`
+          `🗑 Ваш профиль удалён из ArTap` +
+          `${extraText ? `\n💬 ${extraText}` : ""}`
         );
       }
     } catch (notifyError) {
