@@ -725,10 +725,53 @@ background:#5865f2;
 color:white;
 cursor:pointer;
 }
+
+/* maintenance */
+#maintenanceBox{
+position:fixed;
+inset:0;
+display:none;
+justify-content:center;
+align-items:center;
+background:rgba(0,0,0,0.78);
+z-index:500;
+padding:20px;
+box-sizing:border-box;
+}
+
+#maintenanceCard{
+width:340px;
+max-width:100%;
+background:#1f2230;
+border-radius:28px;
+padding:28px 22px;
+text-align:center;
+box-shadow:0 10px 40px rgba(0,0,0,0.55);
+}
+
+#maintenanceTitle{
+font-size:30px;
+font-weight:bold;
+margin-bottom:14px;
+}
+
+#maintenanceText{
+font-size:18px;
+line-height:1.5;
+opacity:0.98;
+white-space:pre-line;
+}
 </style>
 </head>
 
 <body>
+
+<div id="maintenanceBox">
+  <div id="maintenanceCard">
+    <div id="maintenanceTitle">🔧 Техработы</div>
+    <div id="maintenanceText">Сейчас идут техработы. Зайди позже.</div>
+  </div>
+</div>
 
 <div id="topBox">
   <div id="score">
@@ -1044,6 +1087,7 @@ let isSaving = false;
 let referralsCount = 0;
 let tutorialDone = false;
 let onlineInterval = null;
+let maintenanceMode = false;
 
 const scoreElement = document.getElementById("scoreNumber");
 const energyElement = document.getElementById("energyNumber");
@@ -1082,6 +1126,54 @@ const offlineAmount = document.getElementById("offlineAmount");
 const skin1Card = document.getElementById("skin1Card");
 const skin2Card = document.getElementById("skin2Card");
 const skin3Card = document.getElementById("skin3Card");
+
+function showMaintenance(text){
+  maintenanceMode = true;
+  document.getElementById("maintenanceText").innerText = text || "Сейчас идут техработы. Зайди позже.";
+  document.getElementById("maintenanceBox").style.display = "flex";
+
+  document.getElementById("topBox").style.display = "none";
+  document.getElementById("tap-wrap").style.display = "none";
+  document.getElementById("upgradeBtn").style.display = "none";
+  document.getElementById("profileBtn").style.display = "none";
+  document.getElementById("upgradeScreen").style.display = "none";
+  document.getElementById("profileScreen").style.display = "none";
+  document.getElementById("offlineBox").style.display = "none";
+  document.getElementById("tutorialBox").style.display = "none";
+}
+
+function hideMaintenance(){
+  maintenanceMode = false;
+  document.getElementById("maintenanceBox").style.display = "none";
+  document.getElementById("topBox").style.display = "flex";
+  document.getElementById("tap-wrap").style.display = "inline-block";
+  document.getElementById("upgradeBtn").style.display = "block";
+  document.getElementById("profileBtn").style.display = "block";
+}
+
+async function checkGameStatus(){
+  try{
+    const res = await fetch(API_BASE + "/game-status", {
+      method: "GET",
+      cache: "no-store"
+    });
+
+    if(!res.ok) return true;
+
+    const data = await res.json();
+
+    if(data && data.maintenance){
+      showMaintenance(data.text || "Сейчас идут техработы. Зайди позже.");
+      return false;
+    }
+
+    hideMaintenance();
+    return true;
+  }catch(err){
+    console.log("Ошибка game-status:", err);
+    return true;
+  }
+}
 
 function clampGameValues(){
   if(maxEnergy < 500) maxEnergy = 500;
@@ -1156,6 +1248,8 @@ function updateReferralUI(){
 }
 
 function checkTutorial(){
+  if(maintenanceMode) return;
+
   const saved = localStorage.getItem("tutorialDone");
   if(!saved){
     document.getElementById("tutorialBox").style.display = "flex";
@@ -1235,7 +1329,7 @@ ${link}`;
 }
 
 async function sendOnlineHeartbeat(){
-  if(!playerId) return;
+  if(!playerId || maintenanceMode) return;
 
   let nickname = "Игрок";
   try{
@@ -1384,7 +1478,7 @@ async function loadFromServer(){
 }
 
 async function saveToServer(){
-  if(!playerId || isSaving) return;
+  if(!playerId || isSaving || maintenanceMode) return;
   isSaving = true;
 
   try{
@@ -1403,7 +1497,7 @@ async function saveToServer(){
 }
 
 function saveToServerFast(){
-  if(!playerId) return;
+  if(!playerId || maintenanceMode) return;
 
   const url = API_BASE + "/save/" + encodeURIComponent(playerId);
   const payload = JSON.stringify(getSavePayload());
@@ -1433,7 +1527,7 @@ function saveToServerFast(){
 }
 
 function saveGame(){
-  if(serverReady){
+  if(serverReady && !maintenanceMode){
     saveToServer();
   }
 }
@@ -1463,6 +1557,7 @@ function updateSkinUI(){
 }
 
 function setSkin(filename){
+  if(maintenanceMode) return;
   currentSkin = filename;
   updateSkinUI();
   saveGame();
@@ -1614,7 +1709,7 @@ function startIncomeLoop(){
   if(incomeInterval) clearInterval(incomeInterval);
 
   incomeInterval = setInterval(() => {
-    if(!isLoaded) return;
+    if(!isLoaded || maintenanceMode) return;
     score += clickPower;
     updateUI();
     saveGame();
@@ -1625,7 +1720,7 @@ function startEnergyLoop(){
   if(energyInterval) clearInterval(energyInterval);
 
   energyInterval = setInterval(() => {
-    if(!isLoaded) return;
+    if(!isLoaded || maintenanceMode) return;
     if(energy < maxEnergy){
       energy += 1;
       updateUI();
@@ -1638,13 +1733,13 @@ function startAutosaveLoop(){
   if(autosaveInterval) clearInterval(autosaveInterval);
 
   autosaveInterval = setInterval(() => {
-    if(!isLoaded) return;
+    if(!isLoaded || maintenanceMode) return;
     saveGame();
   }, 8000);
 }
 
 function tap(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
 
   sendOnlineHeartbeat();
 
@@ -1673,6 +1768,7 @@ function tap(){
 }
 
 function openUpgrades(){
+  if(maintenanceMode) return;
   sendOnlineHeartbeat();
   document.getElementById("upgradeScreen").style.display = "flex";
   showUpgradesTab();
@@ -1819,7 +1915,7 @@ function escapeHtml(text){
 }
 
 function buyClickUpgrade(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(clickUpgradeLevel >= MAX_CLICK_UPGRADES) return;
 
   if(score >= 5000){
@@ -1839,7 +1935,7 @@ function buyClickUpgrade(){
 }
 
 function buySpeedUpgrade(){
-  if(!isLoaded || boughtSpeed) return;
+  if(!isLoaded || maintenanceMode || boughtSpeed) return;
 
   if(score >= 1500){
     score -= 1500;
@@ -1854,7 +1950,7 @@ function buySpeedUpgrade(){
 }
 
 function buyEnergyUpgrade(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(energyUpgradeCount >= MAX_ENERGY_UPGRADES || maxEnergy >= MAX_ENERGY_TARGET) return;
 
   if(score >= 6500){
@@ -1879,7 +1975,7 @@ function buyEnergyUpgrade(){
 }
 
 function buyFastEnergy(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(energyDelay <= FAST_ENERGY_MIN_DELAY) return;
 
   if(score >= FAST_ENERGY_PRICE){
@@ -1901,7 +1997,7 @@ function buyFastEnergy(){
 }
 
 function claimTask10k(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(task10kDone || score < 10000) return;
 
   score += 500;
@@ -1911,7 +2007,7 @@ function claimTask10k(){
 }
 
 function claimTask1m(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(task1mDone || !reached1m) return;
 
   score += 100000;
@@ -1921,7 +2017,7 @@ function claimTask1m(){
 }
 
 function claimTask4Click(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(task4ClickDone || clickPower < 4) return;
 
   score += 1500;
@@ -1931,7 +2027,7 @@ function claimTask4Click(){
 }
 
 function claimTask3Refs(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(task3RefsDone || referralsCount < 3) return;
 
   score += 2000;
@@ -1941,7 +2037,7 @@ function claimTask3Refs(){
 }
 
 function claimTaskBuy1Upgrade(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(taskBuy1UpgradeDone || !hasAnyUpgradeBought()) return;
 
   score += 2000;
@@ -1951,7 +2047,7 @@ function claimTaskBuy1Upgrade(){
 }
 
 function claimTaskEmptyEnergy(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(taskEmptyEnergyDone || !(energyWasZero || energy === 0)) return;
 
   score += 2000;
@@ -1961,7 +2057,7 @@ function claimTaskEmptyEnergy(){
 }
 
 function claimTask5000Energy(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   if(task5000EnergyDone || maxEnergy < MAX_ENERGY_TARGET) return;
 
   score += 2500;
@@ -1971,7 +2067,7 @@ function claimTask5000Energy(){
 }
 
 function claimOffline(){
-  if(!isLoaded) return;
+  if(!isLoaded || maintenanceMode) return;
   score += offlineCoins;
   offlineCoins = 0;
   updateUI();
@@ -1980,6 +2076,7 @@ function claimOffline(){
 }
 
 function openProfile(){
+  if(maintenanceMode) return;
   sendOnlineHeartbeat();
   document.getElementById("profileScreen").style.display = "flex";
 
@@ -2019,31 +2116,43 @@ function formatCoins(value){
 }
 
 window.addEventListener("beforeunload", () => {
-  if(serverReady) saveToServerFast();
+  if(serverReady && !maintenanceMode) saveToServerFast();
 });
 
 window.addEventListener("pagehide", () => {
-  if(serverReady) saveToServerFast();
+  if(serverReady && !maintenanceMode) saveToServerFast();
 });
 
-document.addEventListener("visibilitychange", () => {
-  if(document.hidden && serverReady){
+document.addEventListener("visibilitychange", async () => {
+  if(document.hidden && serverReady && !maintenanceMode){
     saveToServerFast();
-  }else if(!document.hidden && serverReady){
-    sendOnlineHeartbeat();
+  }else if(!document.hidden){
+    const gameOpen = await checkGameStatus();
+    if(gameOpen && serverReady){
+      sendOnlineHeartbeat();
+    }
   }
 });
 
 async function initGame(){
   playerId = getTelegramPlayerId();
+
+  const gameOpen = await checkGameStatus();
+  if(!gameOpen){
+    return;
+  }
+
   updateReferralUI();
   await loadFromServer();
 
   sendOnlineHeartbeat();
 
   if(onlineInterval) clearInterval(onlineInterval);
-  onlineInterval = setInterval(() => {
-    sendOnlineHeartbeat();
+  onlineInterval = setInterval(async () => {
+    const stillOpen = await checkGameStatus();
+    if(stillOpen){
+      sendOnlineHeartbeat();
+    }
   }, 10000);
 
   startIncomeLoop();
