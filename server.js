@@ -35,6 +35,7 @@ function getAchievementsText(player) {
   if (player.task10kDone) achievements.push("✅ Набрал 10K монет");
   if (player.task1mDone) achievements.push("✅ Набрал 1M монет");
   if (player.task4ClickDone) achievements.push("✅ Дошёл до 4 клика");
+  if (player.task3RefsDone) achievements.push("✅ Пригласил 3 друзей");
   if (player.taskBuy1UpgradeDone) achievements.push("✅ Купил 1 улучшение");
   if (player.taskEmptyEnergyDone) achievements.push("✅ Потратил всю энергию");
   if (player.task5000EnergyDone) achievements.push("✅ Дошёл до 5000 энергии");
@@ -72,6 +73,7 @@ const DEFAULT_PLAYER = {
   task10kDone: false,
   task1mDone: false,
   task4ClickDone: false,
+  task3RefsDone: false,
   reached1m: false,
   taskBuy1UpgradeDone: false,
   taskEmptyEnergyDone: false,
@@ -108,6 +110,7 @@ function normalizePlayer(player = {}) {
   normalized.task10kDone = Boolean(player.task10kDone);
   normalized.task1mDone = Boolean(player.task1mDone);
   normalized.task4ClickDone = Boolean(player.task4ClickDone);
+  normalized.task3RefsDone = Boolean(player.task3RefsDone);
   normalized.reached1m = Boolean(player.reached1m);
   normalized.taskBuy1UpgradeDone = Boolean(player.taskBuy1UpgradeDone);
   normalized.taskEmptyEnergyDone = Boolean(player.taskEmptyEnergyDone);
@@ -167,6 +170,7 @@ async function initDb() {
       task10k_done BOOLEAN NOT NULL DEFAULT FALSE,
       task1m_done BOOLEAN NOT NULL DEFAULT FALSE,
       task4click_done BOOLEAN NOT NULL DEFAULT FALSE,
+      task3refs_done BOOLEAN NOT NULL DEFAULT FALSE,
       reached1m BOOLEAN NOT NULL DEFAULT FALSE,
       task_buy1upgrade_done BOOLEAN NOT NULL DEFAULT FALSE,
       task_empty_energy_done BOOLEAN NOT NULL DEFAULT FALSE,
@@ -192,6 +196,11 @@ async function initDb() {
   await pool.query(`
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS task4click_done BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
+  await pool.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS task3refs_done BOOLEAN NOT NULL DEFAULT FALSE
   `);
 
   await pool.query(`
@@ -240,6 +249,7 @@ function rowToPlayer(row) {
     task10kDone: row.task10k_done,
     task1mDone: row.task1m_done,
     task4ClickDone: row.task4click_done,
+    task3RefsDone: row.task3refs_done,
     reached1m: row.reached1m,
     taskBuy1UpgradeDone: row.task_buy1upgrade_done,
     taskEmptyEnergyDone: row.task_empty_energy_done,
@@ -272,11 +282,11 @@ async function createPlayer(id, extra = {}) {
     `INSERT INTO players (
       id, score, click_power, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
-      energy_upgrade_count, task10k_done, task1m_done, task4click_done, reached1m, task_buy1upgrade_done,
+      energy_upgrade_count, task10k_done, task1m_done, task4click_done, task3refs_done, reached1m, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
       referrals_count, referred_by
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25
     )
     ON CONFLICT (id) DO NOTHING`,
     [
@@ -295,6 +305,7 @@ async function createPlayer(id, extra = {}) {
       p.task10kDone,
       p.task1mDone,
       p.task4ClickDone,
+      p.task3RefsDone,
       p.reached1m,
       p.taskBuy1UpgradeDone,
       p.taskEmptyEnergyDone,
@@ -329,11 +340,11 @@ async function savePlayer(id, playerData) {
     `INSERT INTO players (
       id, score, click_power, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
-      energy_upgrade_count, task10k_done, task1m_done, task4click_done, reached1m, task_buy1upgrade_done,
+      energy_upgrade_count, task10k_done, task1m_done, task4click_done, task3refs_done, reached1m, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
       referrals_count, referred_by
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25
     )
     ON CONFLICT (id) DO UPDATE SET
       score = EXCLUDED.score,
@@ -350,6 +361,7 @@ async function savePlayer(id, playerData) {
       task10k_done = EXCLUDED.task10k_done,
       task1m_done = EXCLUDED.task1m_done,
       task4click_done = EXCLUDED.task4click_done,
+      task3refs_done = EXCLUDED.task3refs_done,
       reached1m = EXCLUDED.reached1m,
       task_buy1upgrade_done = EXCLUDED.task_buy1upgrade_done,
       task_empty_energy_done = EXCLUDED.task_empty_energy_done,
@@ -375,6 +387,7 @@ async function savePlayer(id, playerData) {
       p.task10kDone,
       p.task1mDone,
       p.task4ClickDone,
+      p.task3RefsDone,
       p.reached1m,
       p.taskBuy1UpgradeDone,
       p.taskEmptyEnergyDone,
@@ -787,6 +800,7 @@ app.post("/save/:id", async (req, res) => {
       task10kDone: newData.task10kDone ?? oldPlayer.task10kDone,
       task1mDone: newData.task1mDone ?? oldPlayer.task1mDone,
       task4ClickDone: newData.task4ClickDone ?? oldPlayer.task4ClickDone,
+      task3RefsDone: newData.task3RefsDone ?? oldPlayer.task3RefsDone,
       reached1m: newData.reached1m ?? oldPlayer.reached1m,
       taskBuy1UpgradeDone: newData.taskBuy1UpgradeDone ?? oldPlayer.taskBuy1UpgradeDone,
       taskEmptyEnergyDone: newData.taskEmptyEnergyDone ?? oldPlayer.taskEmptyEnergyDone,
