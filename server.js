@@ -22,6 +22,7 @@ const REF_REWARD = 1500;
 const ONLINE_LIMIT_MS = 30000;
 
 const promoCreationState = new Map();
+const promoInputState = new Map();
 
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
@@ -643,11 +644,53 @@ async function activatePromoCode({ code, playerId, nickname }) {
   }
 }
 
+async function handlePromoActivation(chatId, playerId, nickname, rawCode) {
+  if (!rawCode) {
+    return bot.sendMessage(chatId, "❌ Промокод пустой");
+  }
+
+  const result = await activatePromoCode({
+    code: rawCode,
+    playerId,
+    nickname
+  });
+
+  if (!result.ok) {
+    if (result.error === "not_found") {
+      return bot.sendMessage(chatId, "❌ Промокод не найден");
+    }
+
+    if (result.error === "inactive") {
+      return bot.sendMessage(chatId, "❌ Этот промокод уже неактивен");
+    }
+
+    if (result.error === "limit_reached") {
+      return bot.sendMessage(chatId, "❌ У этого промокода закончились активации");
+    }
+
+    if (result.error === "already_used") {
+      return bot.sendMessage(chatId, "❌ Ты уже активировал этот промокод");
+    }
+
+    return bot.sendMessage(chatId, "❌ Не удалось активировать промокод");
+  }
+
+  const left = Math.max(
+    0,
+    Number(result.promo.max_activations || 0) - Number(result.promo.current_activations || 0)
+  );
+
+  return bot.sendMessage(
+    chatId,
+    `✅ Промокод активирован!\n🪙 Ты получил ${result.reward} монет\n📦 Осталось активаций: ${left}`
+  );
+}
+
 /* =========================
    /START + РЕФЕРАЛКА
 ========================= */
 
-bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
+bot.onText(/^\/start(?:\s+(.+))?$/, async (msg, match) => {
   users.add(msg.from.id);
 
   const playerId = String(msg.from.id);
@@ -728,7 +771,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   );
 });
 
-bot.onText(/\/ref/, async (msg) => {
+bot.onText(/^\/ref$/, async (msg) => {
   try {
     const me = await bot.getMe();
     const playerId = String(msg.from.id);
@@ -756,69 +799,48 @@ ${refLink}
   }
 });
 
-bot.onText(/\/promo(?:\s+(.+))?/, async (msg, match) => {
+bot.onText(/^\/promo$/, async (msg) => {
   try {
     const playerId = String(msg.from.id);
     const nickname = getTelegramNickname(msg.from);
-    const rawCode = String(match?.[1] || "").trim();
 
     await updateOnlinePlayer(playerId, nickname);
 
-    if (!rawCode) {
-      return bot.sendMessage(
-        msg.chat.id,
-        "❌ Напиши так:\n/promo КОД"
-      );
-    }
-
-    const result = await activatePromoCode({
-      code: rawCode,
-      playerId,
-      nickname
+    promoInputState.set(playerId, {
+      step: "await_code"
     });
-
-    if (!result.ok) {
-      if (result.error === "not_found") {
-        return bot.sendMessage(msg.chat.id, "❌ Промокод не найден");
-      }
-
-      if (result.error === "inactive") {
-        return bot.sendMessage(msg.chat.id, "❌ Этот промокод уже неактивен");
-      }
-
-      if (result.error === "limit_reached") {
-        return bot.sendMessage(msg.chat.id, "❌ У этого промокода закончились активации");
-      }
-
-      if (result.error === "already_used") {
-        return bot.sendMessage(msg.chat.id, "❌ Ты уже активировал этот промокод");
-      }
-
-      return bot.sendMessage(msg.chat.id, "❌ Не удалось активировать промокод");
-    }
-
-    const left = Math.max(
-      0,
-      Number(result.promo.max_activations || 0) - Number(result.promo.current_activations || 0)
-    );
 
     await bot.sendMessage(
       msg.chat.id,
-      `✅ Промокод активирован!\n🪙 Ты получил ${result.reward} монет\n📦 Осталось активаций: ${left}`
+      "🎟 Напиши промокод"
     );
   } catch (error) {
     console.log("Ошибка /promo:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка");
+  }
+});
+
+bot.onText(/^\/promo\s+(.+)$/, async (msg, match) => {
+  try {
+    const playerId = String(msg.from.id);
+    const nickname = getTelegramNickname(msg.from);
+    const rawCode = String(match[1] || "").trim();
+
+    await updateOnlinePlayer(playerId, nickname);
+    await handlePromoActivation(msg.chat.id, playerId, nickname, rawCode);
+  } catch (error) {
+    console.log("Ошибка /promo code:", error);
     bot.sendMessage(msg.chat.id, "❌ Ошибка при активации промокода");
   }
 });
 
-bot.onText(/\/players/, (msg) => {
+bot.onText(/^\/players$/, (msg) => {
   if (msg.from.id === adminId) {
     bot.sendMessage(msg.chat.id, "👥 Игроков: " + users.size);
   }
 });
 
-bot.onText(/\/online/, async (msg) => {
+bot.onText(/^\/online$/, async (msg) => {
   try {
     const players = await getOnlinePlayers();
 
@@ -844,7 +866,7 @@ bot.onText(/\/online/, async (msg) => {
    ADMIN COMMANDS
 ========================= */
 
-bot.onText(/\/admin/, (msg) => {
+bot.onText(/^\/admin$/, (msg) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -880,8 +902,8 @@ bot.onText(/\/admin/, (msg) => {
 /promodelete КОД
 ➜ Удалить промокод
 
-/promo КОД
-➜ Активация промокода игроком
+/promo
+➜ Игрок вводит промокод по шагам
 
 /players
 ➜ Посмотреть количество игроков
@@ -891,7 +913,7 @@ bot.onText(/\/admin/, (msg) => {
   );
 });
 
-bot.onText(/\/createpromo/, async (msg) => {
+bot.onText(/^\/createpromo$/, async (msg) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -906,7 +928,7 @@ bot.onText(/\/createpromo/, async (msg) => {
   );
 });
 
-bot.onText(/\/cancelpromo/, async (msg) => {
+bot.onText(/^\/cancelpromo$/, async (msg) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -915,7 +937,7 @@ bot.onText(/\/cancelpromo/, async (msg) => {
   await bot.sendMessage(msg.chat.id, "❌ Создание промокода отменено");
 });
 
-bot.onText(/\/promoinfo\s+(.+)/, async (msg, match) => {
+bot.onText(/^\/promoinfo\s+(.+)$/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -945,7 +967,7 @@ bot.onText(/\/promoinfo\s+(.+)/, async (msg, match) => {
   }
 });
 
-bot.onText(/\/promolist/, async (msg) => {
+bot.onText(/^\/promolist$/, async (msg) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -978,7 +1000,7 @@ bot.onText(/\/promolist/, async (msg) => {
   }
 });
 
-bot.onText(/\/promodelete\s+(.+)/, async (msg, match) => {
+bot.onText(/^\/promodelete\s+(.+)$/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -1006,7 +1028,7 @@ bot.onText(/\/promodelete\s+(.+)/, async (msg, match) => {
   }
 });
 
-bot.onText(/\/give\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?/, async (msg, match) => {
+bot.onText(/^\/give\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -1058,7 +1080,7 @@ bot.onText(/\/give\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?/, async (msg, match) => {
   }
 });
 
-bot.onText(/\/take\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?/, async (msg, match) => {
+bot.onText(/^\/take\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -1113,7 +1135,7 @@ bot.onText(/\/take\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?/, async (msg, match) => {
   }
 });
 
-bot.onText(/\/profile\s+(\S+)/, async (msg, match) => {
+bot.onText(/^\/profile\s+(\S+)$/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -1152,7 +1174,7 @@ ${achievementsText}`
   }
 });
 
-bot.onText(/\/deleteplayer\s+(\S+)(?:\s+([\s\S]+))?/, async (msg, match) => {
+bot.onText(/^\/deleteplayer\s+(\S+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
   }
@@ -1198,23 +1220,33 @@ bot.onText(/\/deleteplayer\s+(\S+)(?:\s+([\s\S]+))?/, async (msg, match) => {
 });
 
 /* =========================
-   MESSAGE HANDLER FOR PROMO CREATION
+   MESSAGE HANDLER
 ========================= */
 
 bot.on("message", async (msg) => {
   try {
-    if (msg.from?.id !== adminId) return;
     if (!msg.text) return;
+
+    const text = String(msg.text).trim();
+    const playerId = String(msg.from.id);
+    const nickname = getTelegramNickname(msg.from);
+
+    if (!text || text.startsWith("/")) {
+      return;
+    }
+
+    const promoWait = promoInputState.get(playerId);
+    if (promoWait && promoWait.step === "await_code") {
+      promoInputState.delete(playerId);
+      await updateOnlinePlayer(playerId, nickname);
+      return handlePromoActivation(msg.chat.id, playerId, nickname, text);
+    }
+
+    if (msg.from.id !== adminId) return;
 
     const adminKey = String(msg.from.id);
     const state = promoCreationState.get(adminKey);
     if (!state) return;
-
-    const text = String(msg.text).trim();
-
-    if (text.startsWith("/")) {
-      return;
-    }
 
     if (state.step === "code") {
       const code = normalizePromoCode(text);
@@ -1284,9 +1316,12 @@ bot.on("message", async (msg) => {
       );
     }
   } catch (error) {
-    console.log("Ошибка создания промокода:", error);
-    promoCreationState.delete(String(msg.from?.id || ""));
-    bot.sendMessage(msg.chat.id, "❌ Ошибка при создании промокода");
+    console.log("Ошибка message handler:", error);
+    if (msg?.from?.id === adminId) {
+      promoCreationState.delete(String(msg.from.id));
+    }
+    promoInputState.delete(String(msg?.from?.id || ""));
+    bot.sendMessage(msg.chat.id, "❌ Ошибка");
   }
 });
 
