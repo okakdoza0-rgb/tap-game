@@ -23,6 +23,7 @@ const ONLINE_LIMIT_MS = 30000;
 
 const promoCreationState = new Map();
 const promoInputState = new Map();
+const maintenanceInputState = new Map();
 
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
@@ -262,6 +263,21 @@ async function initDb() {
       PRIMARY KEY (code, player_id)
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS game_settings (
+      key TEXT PRIMARY KEY,
+      value_text TEXT,
+      value_bool BOOLEAN,
+      updated_at BIGINT NOT NULL DEFAULT 0
+    )
+  `);
+
+  await pool.query(`
+    INSERT INTO game_settings (key, value_bool, value_text, updated_at)
+    VALUES ('maintenance', FALSE, '🔧 Сейчас идут техработы. Зайди позже.', $1)
+    ON CONFLICT (key) DO NOTHING
+  `, [Date.now()]);
 
   await pool.query(`
     INSERT INTO bot_users (id, first_started_at)
@@ -687,6 +703,60 @@ async function handlePromoActivation(chatId, playerId, nickname, rawCode) {
 }
 
 /* =========================
+   MAINTENANCE HELPERS
+========================= */
+
+async function getMaintenanceSettings() {
+  const result = await pool.query(
+    `SELECT key, value_text, value_bool
+     FROM game_settings
+     WHERE key = 'maintenance'
+     LIMIT 1`
+  );
+
+  if (!result.rows.length) {
+    return {
+      enabled: false,
+      text: "🔧 Сейчас идут техработы. Зайди позже."
+    };
+  }
+
+  return {
+    enabled: Boolean(result.rows[0].value_bool),
+    text: String(result.rows[0].value_text || "🔧 Сейчас идут техработы. Зайди позже.")
+  };
+}
+
+async function setMaintenanceEnabled(enabled) {
+  await pool.query(
+    `INSERT INTO game_settings (key, value_bool, updated_at)
+     VALUES ('maintenance', $1, $2)
+     ON CONFLICT (key) DO UPDATE SET
+       value_bool = EXCLUDED.value_bool,
+       updated_at = EXCLUDED.updated_at`,
+    [Boolean(enabled), Date.now()]
+  );
+
+  return getMaintenanceSettings();
+}
+
+async function setMaintenanceText(text) {
+  const safeText =
+    String(text || "").trim() || "🔧 Сейчас идут техработы. Зайди позже.";
+
+  await pool.query(
+    `INSERT INTO game_settings (key, value_text, updated_at)
+     VALUES ('maintenance', $1, $2)
+     ON CONFLICT (key) DO UPDATE SET
+       value_text = EXCLUDED.value_text,
+       updated_at = EXCLUDED.updated_at`,
+    [safeText, Date.now()]
+  );
+
+  return getMaintenanceSettings();
+}
+
+/* =========================
    /START + РЕФЕРАЛКА
 ========================= */
 
@@ -888,6 +958,18 @@ bot.onText(/^\/admin$/, (msg) => {
 /promo
 ➜ Игрок вводит промокод по шагам
 
+/maintenance on
+➜ Включить техработы
+
+/maintenance off
+➜ Выключить техработы
+
+/maintenance status
+➜ Проверить статус техработ
+
+/maintenancetext
+➜ Изменить текст техработ
+
 /players
 ➜ Посмотреть количество игроков
 
@@ -980,6 +1062,53 @@ bot.onText(/^\/promodelete$/, async (msg) => {
   await bot.sendMessage(
     msg.chat.id,
     "🗑 Напиши код промокода для удаления"
+  );
+});
+
+bot.onText(/^\/maintenance(?:\s+(on|off|status))?$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const action = String(match?.[1] || "status").toLowerCase();
+
+    if (action === "on") {
+      const settings = await setMaintenanceEnabled(true);
+      return bot.sendMessage(
+        msg.chat.id,
+        `🔒 Техработы включены\n\nТекст:\n${settings.text}`
+      );
+    }
+
+    if (action === "off") {
+      await setMaintenanceEnabled(false);
+      return bot.sendMessage(msg.chat.id, "✅ Игра снова открыта");
+    }
+
+    const settings = await getMaintenanceSettings();
+    return bot.sendMessage(
+      msg.chat.id,
+      `📋 Статус техработ: ${settings.enabled ? "ВКЛЮЧЕНЫ" : "ВЫКЛЮЧЕНЫ"}\n\nТекст:\n${settings.text}`
+    );
+  } catch (error) {
+    console.log("Ошибка /maintenance:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка команды техработ");
+  }
+});
+
+bot.onText(/^\/maintenancetext$/i, async (msg) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  maintenanceInputState.set(String(msg.from.id), {
+    action: "maintenance_text"
+  });
+
+  await bot.sendMessage(
+    msg.chat.id,
+    "📝 Напиши новый текст для техработ"
   );
 });
 
@@ -1190,6 +1319,24 @@ bot.on("message", async (msg) => {
       return;
     }
 
+    const maintenanceState = maintenanceInputState.get(playerId);
+
+    if (maintenanceState && maintenanceState.action === "maintenance_text") {
+      if (msg.from.id !== adminId) {
+        maintenanceInputState.delete(playerId);
+        return;
+      }
+
+      maintenanceInputState.delete(playerId);
+
+      const settings = await setMaintenanceText(text);
+
+      return bot.sendMessage(
+        msg.chat.id,
+        `✅ Текст техработ обновлён\n\nНовый текст:\n${settings.text}`
+      );
+    }
+
     const promoWait = promoInputState.get(playerId);
 
     if (promoWait && promoWait.action === "promo_activate") {
@@ -1329,6 +1476,7 @@ bot.on("message", async (msg) => {
     console.log("Ошибка message handler:", error);
     if (msg?.from?.id === adminId) {
       promoCreationState.delete(String(msg.from.id));
+      maintenanceInputState.delete(String(msg.from.id));
     }
     promoInputState.delete(String(msg?.from?.id || ""));
     bot.sendMessage(msg.chat.id, "❌ Ошибка");
@@ -1427,6 +1575,22 @@ app.post("/online/:id", async (req, res) => {
   } catch (error) {
     console.log("Ошибка /online:", error);
     return res.status(500).json({ error: "Ошибка онлайна" });
+  }
+});
+
+app.get("/game-status", async (req, res) => {
+  try {
+    const settings = await getMaintenanceSettings();
+
+    return res.json({
+      maintenance: settings.enabled,
+      text: settings.text
+    });
+  } catch (error) {
+    console.log("Ошибка /game-status:", error);
+    return res.status(500).json({
+      error: "Ошибка статуса игры"
+    });
   }
 });
 
