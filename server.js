@@ -1996,7 +1996,10 @@ async function remindInactivePlayers() {
   }
 }
 
-// проверка каждые 30 минут
+// отправить один раз после запуска
+setTimeout(remindInactivePlayers, 10000);
+
+// проверять каждые 30 минут
 setInterval(remindInactivePlayers, 30 * 60 * 1000);
 
 /* =========================
