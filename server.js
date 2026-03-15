@@ -30,6 +30,14 @@ function getTelegramNickname(user = {}) {
   return "Игрок";
 }
 
+function getEnergyRegenText(player) {
+  const delay = Number(player.energyDelay) || 3000;
+
+  if (delay <= 1000) return "1 сек";
+  if (delay <= 2000) return "2 сек";
+  return "3 сек";
+}
+
 function getAchievementsText(player) {
   const achievements = [];
 
@@ -62,6 +70,7 @@ const pool = new Pool({
 const DEFAULT_PLAYER = {
   score: 0,
   clickPower: 1,
+  clickUpgradeLevel: 0,
   boughtClick: false,
   boughtSpeed: false,
   incomeSeconds: 5,
@@ -99,15 +108,26 @@ function normalizePlayer(player = {}) {
 
   normalized.score = toNumber(player.score ?? player.coins, DEFAULT_PLAYER.score);
   normalized.clickPower = toNumber(player.clickPower ?? player.click, DEFAULT_PLAYER.clickPower);
+  normalized.clickUpgradeLevel = toNumber(
+    player.clickUpgradeLevel,
+    Math.max(0, normalized.clickPower - 1)
+  );
+
   normalized.boughtClick = Boolean(player.boughtClick || normalized.clickPower > 1);
   normalized.boughtSpeed = Boolean(player.boughtSpeed);
   normalized.incomeSeconds = toNumber(player.incomeSeconds, DEFAULT_PLAYER.incomeSeconds);
-  normalized.fastEnergy = Boolean(player.fastEnergy);
-  normalized.energyDelay = normalized.fastEnergy ? 2000 : toNumber(player.energyDelay, DEFAULT_PLAYER.energyDelay);
+
+  normalized.energyDelay = toNumber(player.energyDelay, DEFAULT_PLAYER.energyDelay);
+  if (normalized.energyDelay < 1000) normalized.energyDelay = 1000;
+  if (normalized.energyDelay > 3000) normalized.energyDelay = 3000;
+
+  normalized.fastEnergy = normalized.energyDelay < 3000 || Boolean(player.fastEnergy);
+
   normalized.currentSkin = player.currentSkin || DEFAULT_PLAYER.currentSkin;
   normalized.maxEnergy = toNumber(player.maxEnergy, DEFAULT_PLAYER.maxEnergy);
   normalized.energy = toNumber(player.energy, normalized.maxEnergy);
   normalized.energyUpgradeCount = toNumber(player.energyUpgradeCount, DEFAULT_PLAYER.energyUpgradeCount);
+
   normalized.task10kDone = Boolean(player.task10kDone);
   normalized.task1mDone = Boolean(player.task1mDone);
   normalized.task4ClickDone = Boolean(player.task4ClickDone);
@@ -135,6 +155,9 @@ function normalizePlayer(player = {}) {
   if (normalized.clickPower < 1) normalized.clickPower = 1;
   if (normalized.clickPower > 4) normalized.clickPower = 4;
 
+  if (normalized.clickUpgradeLevel < 0) normalized.clickUpgradeLevel = 0;
+  if (normalized.clickUpgradeLevel > 3) normalized.clickUpgradeLevel = 3;
+
   if (normalized.incomeSeconds < 1) normalized.incomeSeconds = 1;
   if (normalized.energyUpgradeCount < 0) normalized.energyUpgradeCount = 0;
   if (normalized.score < 0) normalized.score = 0;
@@ -159,6 +182,7 @@ async function initDb() {
       id TEXT PRIMARY KEY,
       score INTEGER NOT NULL DEFAULT 0,
       click_power INTEGER NOT NULL DEFAULT 1,
+      click_upgrade_level INTEGER NOT NULL DEFAULT 0,
       bought_click BOOLEAN NOT NULL DEFAULT FALSE,
       bought_speed BOOLEAN NOT NULL DEFAULT FALSE,
       income_seconds INTEGER NOT NULL DEFAULT 5,
@@ -184,40 +208,14 @@ async function initDb() {
     )
   `);
 
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT 'Игрок'
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS task1m_done BOOLEAN NOT NULL DEFAULT FALSE
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS task4click_done BOOLEAN NOT NULL DEFAULT FALSE
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS task3refs_done BOOLEAN NOT NULL DEFAULT FALSE
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS reached1m BOOLEAN NOT NULL DEFAULT FALSE
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS referrals_count INTEGER NOT NULL DEFAULT 0
-  `);
-
-  await pool.query(`
-    ALTER TABLE players
-    ADD COLUMN IF NOT EXISTS referred_by TEXT
-  `);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS nickname TEXT NOT NULL DEFAULT 'Игрок'`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS click_upgrade_level INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS task1m_done BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS task4click_done BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS task3refs_done BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS reached1m BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS referrals_count INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS referred_by TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS bot_users (
@@ -246,6 +244,7 @@ function rowToPlayer(row) {
   return {
     score: row.score,
     clickPower: row.click_power,
+    clickUpgradeLevel: row.click_upgrade_level,
     boughtClick: row.bought_click,
     boughtSpeed: row.bought_speed,
     incomeSeconds: row.income_seconds,
@@ -289,19 +288,20 @@ async function createPlayer(id, extra = {}) {
 
   await pool.query(
     `INSERT INTO players (
-      id, score, click_power, bought_click, bought_speed, income_seconds,
+      id, score, click_power, click_upgrade_level, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task1m_done, task4click_done, task3refs_done, reached1m, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
       referrals_count, referred_by
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
     )
     ON CONFLICT (id) DO NOTHING`,
     [
       id,
       p.score,
       p.clickPower,
+      p.clickUpgradeLevel,
       p.boughtClick,
       p.boughtSpeed,
       p.incomeSeconds,
@@ -347,17 +347,18 @@ async function savePlayer(id, playerData) {
 
   await pool.query(
     `INSERT INTO players (
-      id, score, click_power, bought_click, bought_speed, income_seconds,
+      id, score, click_power, click_upgrade_level, bought_click, bought_speed, income_seconds,
       fast_energy, energy_delay, current_skin, max_energy, energy,
       energy_upgrade_count, task10k_done, task1m_done, task4click_done, task3refs_done, reached1m, task_buy1upgrade_done,
       task_empty_energy_done, task5000energy_done, energy_was_zero, last_time, nickname,
       referrals_count, referred_by
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26
     )
     ON CONFLICT (id) DO UPDATE SET
       score = EXCLUDED.score,
       click_power = EXCLUDED.click_power,
+      click_upgrade_level = EXCLUDED.click_upgrade_level,
       bought_click = EXCLUDED.bought_click,
       bought_speed = EXCLUDED.bought_speed,
       income_seconds = EXCLUDED.income_seconds,
@@ -384,6 +385,7 @@ async function savePlayer(id, playerData) {
       id,
       p.score,
       p.clickPower,
+      p.clickUpgradeLevel,
       p.boughtClick,
       p.boughtSpeed,
       p.incomeSeconds,
@@ -759,7 +761,7 @@ bot.onText(/\/profile\s+(\S+)/, async (msg, match) => {
 ⚡ Сила клика: ${player.clickPower}
 🔋 Энергия: ${player.energy}/${player.maxEnergy}
 ⏱ Доход: ${player.clickPower} / ${player.incomeSeconds} сек
-⚡ Реген энергии: ${player.fastEnergy ? 2 : 3} сек
+⚡ Реген энергии: ${getEnergyRegenText(player)}
 👥 Рефералов: ${player.referralsCount || 0}
 🔗 Пришёл от: ${player.referredBy || "Никого"}
 
@@ -851,6 +853,7 @@ app.post("/save/:id", async (req, res) => {
       ...newData,
       score: newData.score ?? newData.coins ?? oldPlayer.score,
       clickPower: newData.clickPower ?? newData.click ?? oldPlayer.clickPower,
+      clickUpgradeLevel: newData.clickUpgradeLevel ?? oldPlayer.clickUpgradeLevel,
       boughtClick: newData.boughtClick ?? oldPlayer.boughtClick,
       boughtSpeed: newData.boughtSpeed ?? oldPlayer.boughtSpeed,
       incomeSeconds: newData.incomeSeconds ?? oldPlayer.incomeSeconds,
