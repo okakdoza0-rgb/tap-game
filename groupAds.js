@@ -102,6 +102,12 @@ module.exports = function setupGroupAds({ bot, pool }) {
 
       if (becameActive) {
         await savePromoGroup(chatId, title);
+
+        try {
+          await bot.sendMessage(chatId, getDailyArTapAdText());
+        } catch (error) {
+          console.log("Ошибка приветственной рекламы в группу:", chatId, error.message);
+        }
       }
 
       if (becameRemoved) {
