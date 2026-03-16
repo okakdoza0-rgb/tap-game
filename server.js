@@ -31,6 +31,9 @@ const REMIND_AFTER_MS = 5 * 60 * 60 * 1000;
 const REMIND_REPEAT_MS = 5 * 60 * 60 * 1000;
 const REMIND_CHECK_MS = 10 * 60 * 1000;
 
+/* проверка заморозки */
+const FREEZE_CHECK_MS = 60 * 1000;
+
 function getTelegramNickname(user = {}) {
   const firstName = String(user.first_name || "").trim();
   const username = String(user.username || "").trim();
@@ -88,6 +91,53 @@ function formatDateTime(ms) {
   const min = String(date.getMinutes()).padStart(2, "0");
 
   return `${dd}.${mm}.${yyyy} ${hh}:${min}`;
+}
+
+function parseFreezeDuration(raw) {
+  const text = String(raw || "").trim().toLowerCase();
+  const match = text.match(/^(\d+)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days)$/i);
+
+  if (!match) return null;
+
+  const value = Number(match[1]);
+  const unit = String(match[2]).toLowerCase();
+
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  if (["m", "min", "mins", "minute", "minutes"].includes(unit)) {
+    return value * 60 * 1000;
+  }
+
+  if (["h", "hr", "hrs", "hour", "hours"].includes(unit)) {
+    return value * 60 * 60 * 1000;
+  }
+
+  if (["d", "day", "days"].includes(unit)) {
+    return value * 24 * 60 * 60 * 1000;
+  }
+
+  return null;
+}
+
+function formatFreezeLeft(ms) {
+  const value = Number(ms || 0);
+
+  if (value <= 0) return "0 мин";
+
+  const totalSeconds = Math.ceil(value / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (days > 0) {
+    return `${days} д. ${hours} ч.`;
+  }
+
+  if (hours > 0) {
+    return `${hours} ч. ${minutes} мин.`;
+  }
+
+  return `${Math.max(1, minutes)} мин.`;
 }
 
 /* =========================
@@ -317,6 +367,15 @@ async function initDb() {
       id TEXT PRIMARY KEY,
       reason TEXT,
       banned_at BIGINT NOT NULL DEFAULT 0
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS frozen_players (
+      id TEXT PRIMARY KEY,
+      reason TEXT,
+      frozen_until BIGINT NOT NULL DEFAULT 0,
+      frozen_at BIGINT NOT NULL DEFAULT 0
     )
   `);
 
@@ -611,6 +670,97 @@ async function resetPlayerCoins(id) {
 }
 
 /* =========================
+   FREEZE HELPERS
+========================= */
+
+async function getFrozenPlayer(id) {
+  const result = await pool.query(
+    `SELECT id, reason, frozen_until, frozen_at
+     FROM frozen_players
+     WHERE id = $1
+     LIMIT 1`,
+    [id]
+  );
+
+  if (!result.rows.length) return null;
+
+  const row = result.rows[0];
+  const now = Date.now();
+  const frozenUntil = Number(row.frozen_until || 0);
+
+  if (frozenUntil <= now) {
+    await pool.query(`DELETE FROM frozen_players WHERE id = $1`, [id]);
+    return null;
+  }
+
+  return row;
+}
+
+async function freezePlayer(id, durationMs, reason = "") {
+  const now = Date.now();
+  const frozenUntil = now + Number(durationMs || 0);
+  const safeReason = String(reason || "").trim();
+
+  await pool.query(
+    `INSERT INTO frozen_players (id, reason, frozen_until, frozen_at)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (id) DO UPDATE SET
+       reason = EXCLUDED.reason,
+       frozen_until = EXCLUDED.frozen_until,
+       frozen_at = EXCLUDED.frozen_at`,
+    [id, safeReason, frozenUntil, now]
+  );
+
+  return getFrozenPlayer(id);
+}
+
+async function unfreezePlayer(id) {
+  const result = await pool.query(
+    `DELETE FROM frozen_players WHERE id = $1`,
+    [id]
+  );
+
+  return result.rowCount > 0;
+}
+
+async function notifyExpiredFreezes() {
+  try {
+    const now = Date.now();
+
+    const result = await pool.query(
+      `SELECT id
+       FROM frozen_players
+       WHERE frozen_until <= $1`,
+      [now]
+    );
+
+    if (!result.rows.length) return;
+
+    for (const row of result.rows) {
+      const playerId = String(row.id || "").trim();
+      if (!playerId) continue;
+
+      try {
+        await bot.sendMessage(
+          playerId,
+          "✅ Заморозка аккаунта закончилась\n🎮 Доступ к ArTap снова открыт"
+        );
+      } catch (notifyError) {
+        console.log("Не удалось уведомить игрока о разморозке:", notifyError.message);
+      }
+    }
+
+    await pool.query(
+      `DELETE FROM frozen_players
+       WHERE frozen_until <= $1`,
+      [now]
+    );
+  } catch (error) {
+    console.log("Ошибка notifyExpiredFreezes:", error);
+  }
+}
+
+/* =========================
    PROMO HELPERS
 ========================= */
 
@@ -774,6 +924,15 @@ async function handlePromoActivation(chatId, playerId, nickname, rawCode) {
     );
   }
 
+  const frozen = await getFrozenPlayer(playerId);
+  if (frozen) {
+    const left = formatFreezeLeft(Number(frozen.frozen_until || 0) - Date.now());
+    return bot.sendMessage(
+      chatId,
+      `❄️ Твой аккаунт заморожен\n⏳ Осталось: ${left}${frozen.reason ? `\n📄 Причина: ${frozen.reason}` : ""}`
+    );
+  }
+
   const result = await activatePromoCode({
     code: rawCode,
     playerId,
@@ -885,6 +1044,15 @@ bot.onText(/^\/start(?:\s+(.+))?$/, async (msg, match) => {
       );
     }
 
+    const frozen = await getFrozenPlayer(playerId);
+    if (frozen) {
+      const left = formatFreezeLeft(Number(frozen.frozen_until || 0) - Date.now());
+      return bot.sendMessage(
+        msg.chat.id,
+        `❄️ Твой аккаунт в ArTap заморожен\n⏳ Осталось: ${left}${frozen.reason ? `\n📄 Причина: ${frozen.reason}` : ""}`
+      );
+    }
+
     const startedBefore = await hasBotStartedBefore(playerId);
 
     let player = await getPlayer(playerId);
@@ -961,12 +1129,21 @@ bot.onText(/^\/start(?:\s+(.+))?$/, async (msg, match) => {
 bot.onText(/^\/ref$/, async (msg) => {
   try {
     const playerId = String(msg.from.id);
-    const banned = await isPlayerBanned(playerId);
 
+    const banned = await isPlayerBanned(playerId);
     if (banned) {
       return bot.sendMessage(
         msg.chat.id,
         `⛔ Ты заблокирован в игре${banned.reason ? `\nПричина: ${banned.reason}` : ""}`
+      );
+    }
+
+    const frozen = await getFrozenPlayer(playerId);
+    if (frozen) {
+      const left = formatFreezeLeft(Number(frozen.frozen_until || 0) - Date.now());
+      return bot.sendMessage(
+        msg.chat.id,
+        `❄️ Твой аккаунт заморожен\n⏳ Осталось: ${left}${frozen.reason ? `\n📄 Причина: ${frozen.reason}` : ""}`
       );
     }
 
@@ -999,12 +1176,21 @@ bot.onText(/^\/promo$/, async (msg) => {
   try {
     const playerId = String(msg.from.id);
     const nickname = getTelegramNickname(msg.from);
-    const banned = await isPlayerBanned(playerId);
 
+    const banned = await isPlayerBanned(playerId);
     if (banned) {
       return bot.sendMessage(
         msg.chat.id,
         `⛔ Ты заблокирован в игре${banned.reason ? `\nПричина: ${banned.reason}` : ""}`
+      );
+    }
+
+    const frozen = await getFrozenPlayer(playerId);
+    if (frozen) {
+      const left = formatFreezeLeft(Number(frozen.frozen_until || 0) - Date.now());
+      return bot.sendMessage(
+        msg.chat.id,
+        `❄️ Твой аккаунт заморожен\n⏳ Осталось: ${left}${frozen.reason ? `\n📄 Причина: ${frozen.reason}` : ""}`
       );
     }
 
@@ -1088,6 +1274,12 @@ bot.onText(/^\/admin$/, (msg) => {
 
 /unban ID
 ➜ Разбанить игрока
+
+/freeze ID ВРЕМЯ ПРИЧИНА
+➜ Заморозить игрока
+
+/unfreeze ID
+➜ Снять заморозку
 
 /resetcoins ID
 ➜ Сбросить монеты игроку
@@ -1433,6 +1625,95 @@ bot.onText(/^\/unban\s+(\S+)$/i, async (msg, match) => {
   }
 });
 
+bot.onText(/^\/freeze\s+(\S+)\s+(\S+)(?:\s+([\s\S]+))?$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1] || "").trim();
+    const durationText = String(match[2] || "").trim();
+    const reason = String(match[3] || "").trim();
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    if (playerId === String(adminId)) {
+      return bot.sendMessage(msg.chat.id, "❌ Себя заморозить нельзя");
+    }
+
+    const durationMs = parseFreezeDuration(durationText);
+
+    if (!durationMs) {
+      return bot.sendMessage(
+        msg.chat.id,
+        "❌ Неверное время\nПримеры:\n/freeze 123456789 5m причина\n/freeze 123456789 2h причина\n/freeze 123456789 1d причина"
+      );
+    }
+
+    const frozen = await freezePlayer(playerId, durationMs, reason);
+
+    await pool.query("DELETE FROM online_players WHERE id = $1", [playerId]);
+
+    const leftText = formatFreezeLeft(Number(frozen.frozen_until || 0) - Date.now());
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `❄️ Игрок ${playerId} заморожен\n⏳ Срок: ${leftText}${reason ? `\n📄 Причина: ${reason}` : ""}`
+    );
+
+    try {
+      await bot.sendMessage(
+        playerId,
+        `❄️ Твой аккаунт в ArTap заморожен\n⏳ Срок: ${leftText}${reason ? `\n📄 Причина: ${reason}` : ""}`
+      );
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока о заморозке:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /freeze:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при заморозке игрока");
+  }
+});
+
+bot.onText(/^\/unfreeze\s+(\S+)$/i, async (msg, match) => {
+  if (msg.from.id !== adminId) {
+    return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
+  }
+
+  try {
+    const playerId = String(match[1] || "").trim();
+
+    if (!playerId) {
+      return bot.sendMessage(msg.chat.id, "❌ Укажи ID игрока");
+    }
+
+    const unfrozen = await unfreezePlayer(playerId);
+
+    if (!unfrozen) {
+      return bot.sendMessage(msg.chat.id, "❌ Этот игрок не заморожен");
+    }
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `✅ Игрок ${playerId} разморожен`
+    );
+
+    try {
+      await bot.sendMessage(
+        playerId,
+        "✅ Заморозка аккаунта снята\n🎮 Доступ к ArTap снова открыт"
+      );
+    } catch (notifyError) {
+      console.log("Не удалось уведомить игрока о разморозке:", notifyError.message);
+    }
+  } catch (error) {
+    console.log("Ошибка /unfreeze:", error);
+    bot.sendMessage(msg.chat.id, "❌ Ошибка при разморозке игрока");
+  }
+});
+
 bot.onText(/^\/resetcoins\s+(\S+)$/i, async (msg, match) => {
   if (msg.from.id !== adminId) {
     return bot.sendMessage(msg.chat.id, "⛔ Нет доступа");
@@ -1509,6 +1790,12 @@ bot.onText(/^\/broadcast\s+([\s\S]+)$/i, async (msg, match) => {
           continue;
         }
 
+        const frozen = await getFrozenPlayer(userId);
+        if (frozen) {
+          skipped++;
+          continue;
+        }
+
         await bot.sendMessage(
           userId,
           `📢 Сообщение от администрации ArTap\n\n${messageText}`
@@ -1554,6 +1841,11 @@ bot.onText(/^\/give\s+(\S+)\s+(\d+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
     const banned = await isPlayerBanned(playerId);
     if (banned) {
       return bot.sendMessage(msg.chat.id, "❌ Игрок забанен");
+    }
+
+    const frozen = await getFrozenPlayer(playerId);
+    if (frozen) {
+      return bot.sendMessage(msg.chat.id, "❌ Игрок заморожен");
     }
 
     const player = await getOrCreatePlayer(playerId);
@@ -1660,6 +1952,7 @@ bot.onText(/^\/profile\s+(\S+)$/, async (msg, match) => {
     const player = await getOrCreatePlayer(playerId);
     const achievementsText = getAchievementsText(player);
     const banned = await isPlayerBanned(playerId);
+    const frozen = await getFrozenPlayer(playerId);
 
     await bot.sendMessage(
       msg.chat.id,
@@ -1678,6 +1971,7 @@ bot.onText(/^\/profile\s+(\S+)$/, async (msg, match) => {
 📊 Входов: ${player.loginCount || 0}
 🕒 Последний вход: ${formatDateTime(player.lastLoginAt)}
 🚫 Бан: ${banned ? "Да" : "Нет"}${banned?.reason ? `\n📄 Причина бана: ${banned.reason}` : ""}
+❄️ Заморозка: ${frozen ? "Да" : "Нет"}${frozen ? `\n⏳ До: ${formatDateTime(frozen.frozen_until)}${frozen.reason ? `\n📄 Причина: ${frozen.reason}` : ""}` : ""}
 
 🏆 Достижения:
 ${achievementsText}`
@@ -1709,6 +2003,7 @@ bot.onText(/^\/deleteplayer\s+(\S+)(?:\s+([\s\S]+))?$/, async (msg, match) => {
 
     users.delete(Number(playerId));
     await pool.query("DELETE FROM online_players WHERE id = $1", [playerId]);
+    await pool.query("DELETE FROM frozen_players WHERE id = $1", [playerId]);
 
     await bot.sendMessage(
       msg.chat.id,
@@ -1934,6 +2229,17 @@ app.get("/load/:id", async (req, res) => {
       });
     }
 
+    const frozen = await getFrozenPlayer(id);
+    if (frozen) {
+      return res.status(423).json({
+        error: "Игрок заморожен",
+        frozen: true,
+        reason: frozen.reason || "",
+        frozenUntil: Number(frozen.frozen_until || 0),
+        leftText: formatFreezeLeft(Number(frozen.frozen_until || 0) - Date.now())
+      });
+    }
+
     const player = await getOrCreatePlayer(id);
     return res.json(playerResponse(player));
   } catch (error) {
@@ -1956,6 +2262,17 @@ app.post("/save/:id", async (req, res) => {
         error: "Игрок забанен",
         banned: true,
         reason: banned.reason || ""
+      });
+    }
+
+    const frozen = await getFrozenPlayer(id);
+    if (frozen) {
+      return res.status(423).json({
+        error: "Игрок заморожен",
+        frozen: true,
+        reason: frozen.reason || "",
+        frozenUntil: Number(frozen.frozen_until || 0),
+        leftText: formatFreezeLeft(Number(frozen.frozen_until || 0) - Date.now())
       });
     }
 
@@ -2025,6 +2342,17 @@ app.post("/online/:id", async (req, res) => {
         error: "Игрок забанен",
         banned: true,
         reason: banned.reason || ""
+      });
+    }
+
+    const frozen = await getFrozenPlayer(id);
+    if (frozen) {
+      return res.status(423).json({
+        error: "Игрок заморожен",
+        frozen: true,
+        reason: frozen.reason || "",
+        frozenUntil: Number(frozen.frozen_until || 0),
+        leftText: formatFreezeLeft(Number(frozen.frozen_until || 0) - Date.now())
       });
     }
 
@@ -2102,7 +2430,6 @@ app.get("/", (req, res) => {
 
 async function remindInactivePlayers() {
   try {
-
     const result = await pool.query(`
       SELECT id, nickname, last_time
       FROM players
@@ -2111,7 +2438,6 @@ async function remindInactivePlayers() {
     const now = Date.now();
 
     for (const row of result.rows) {
-
       const playerId = String(row.id || "").trim();
       const lastTime = Number(row.last_time || 0);
 
@@ -2119,6 +2445,9 @@ async function remindInactivePlayers() {
 
       const banned = await isPlayerBanned(playerId);
       if (banned) continue;
+
+      const frozen = await getFrozenPlayer(playerId);
+      if (frozen) continue;
 
       const diff = now - lastTime;
 
@@ -2134,7 +2463,6 @@ async function remindInactivePlayers() {
       }
 
       try {
-
         await bot.sendMessage(
           playerId,
 `⚡ Энергия восстановилась!
@@ -2147,13 +2475,10 @@ async function remindInactivePlayers() {
         remindedPlayers.set(playerId, now);
 
         console.log("Напоминание отправлено:", playerId);
-
       } catch (err) {
         console.log("Ошибка отправки:", playerId, err.message);
       }
-
     }
-
   } catch (error) {
     console.log("Ошибка напоминаний:", error);
   }
@@ -2161,6 +2486,7 @@ async function remindInactivePlayers() {
 
 setTimeout(remindInactivePlayers, 10000);
 setInterval(remindInactivePlayers, REMIND_CHECK_MS);
+setInterval(notifyExpiredFreezes, FREEZE_CHECK_MS);
 
 /* =========================
    START SERVER
@@ -2168,16 +2494,11 @@ setInterval(remindInactivePlayers, REMIND_CHECK_MS);
 
 initDb()
   .then(() => {
-
     app.listen(PORT, () => {
       console.log("Server started on port " + PORT);
     });
-
   })
   .catch((error) => {
-
     console.log("Ошибка запуска БД:", error);
-
     process.exit(1);
-
   });
