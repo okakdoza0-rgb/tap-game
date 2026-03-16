@@ -2086,7 +2086,14 @@ app.get("/top", async (req, res) => {
 ========================= */
 
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  const indexPath = path.join(__dirname, "index.html");
+
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.log("Ошибка загрузки index.html:", err.message);
+      res.status(500).send("Ошибка загрузки игры");
+    }
+  });
 });
 
 /* =========================
@@ -2095,6 +2102,7 @@ app.get("/", (req, res) => {
 
 async function remindInactivePlayers() {
   try {
+
     const result = await pool.query(`
       SELECT id, nickname, last_time
       FROM players
@@ -2103,6 +2111,7 @@ async function remindInactivePlayers() {
     const now = Date.now();
 
     for (const row of result.rows) {
+
       const playerId = String(row.id || "").trim();
       const lastTime = Number(row.last_time || 0);
 
@@ -2125,6 +2134,7 @@ async function remindInactivePlayers() {
       }
 
       try {
+
         await bot.sendMessage(
           playerId,
 `⚡ Энергия восстановилась!
@@ -2135,11 +2145,15 @@ async function remindInactivePlayers() {
         );
 
         remindedPlayers.set(playerId, now);
+
         console.log("Напоминание отправлено:", playerId);
+
       } catch (err) {
         console.log("Ошибка отправки:", playerId, err.message);
       }
+
     }
+
   } catch (error) {
     console.log("Ошибка напоминаний:", error);
   }
@@ -2149,16 +2163,21 @@ setTimeout(remindInactivePlayers, 10000);
 setInterval(remindInactivePlayers, REMIND_CHECK_MS);
 
 /* =========================
-   START
+   START SERVER
 ========================= */
 
 initDb()
   .then(() => {
+
     app.listen(PORT, () => {
       console.log("Server started on port " + PORT);
     });
+
   })
   .catch((error) => {
+
     console.log("Ошибка запуска БД:", error);
+
     process.exit(1);
+
   });
