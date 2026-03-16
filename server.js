@@ -728,7 +728,7 @@ async function notifyExpiredFreezes() {
     const now = Date.now();
 
     const result = await pool.query(
-      `SELECT id
+      `SELECT id, reason, frozen_until
        FROM frozen_players
        WHERE frozen_until <= $1`,
       [now]
@@ -743,18 +743,19 @@ async function notifyExpiredFreezes() {
       try {
         await bot.sendMessage(
           playerId,
-          "✅ Заморозка аккаунта закончилась\n🎮 Доступ к ArTap снова открыт"
+          `✅ Заморозка аккаунта закончилась
+
+🎮 Теперь ты снова можешь зайти в ArTap`
         );
       } catch (notifyError) {
-        console.log("Не удалось уведомить игрока о разморозке:", notifyError.message);
+        console.log(`Не удалось отправить сообщение игроку ${playerId}:`, notifyError.message);
       }
-    }
 
-    await pool.query(
-      `DELETE FROM frozen_players
-       WHERE frozen_until <= $1`,
-      [now]
-    );
+      await pool.query(
+        `DELETE FROM frozen_players WHERE id = $1`,
+        [playerId]
+      );
+    }
   } catch (error) {
     console.log("Ошибка notifyExpiredFreezes:", error);
   }
